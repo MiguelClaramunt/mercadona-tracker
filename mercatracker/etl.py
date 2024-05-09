@@ -143,7 +143,11 @@ def update_database(
     recent_files = get_recent_files("./items/*.csv", lastmod=lastmod)
 
     if table == "categories":
-        read_multiple(recent_files)[columns_to_select],
+        df_updated = Hasher(
+            generate_categories(recent_files)[columns_to_select],
+            columns_to_hash=columns_to_hash,
+            target_column_name="hash",
+        ).hash()
     else:
         df_updated = Hasher(
             read_multiple(recent_files)[columns_to_select],
