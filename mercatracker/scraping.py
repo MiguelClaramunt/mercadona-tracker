@@ -61,7 +61,7 @@ def get_lastmod(soup) -> int:
 
 def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> set[str]:
     try:
-        ids_checked = set(
+        ids_checked = (
             pd.read_csv(filename, usecols=dtypes.keys(), dtype=dtypes)[dtypes.keys()]
             .iloc[:, 0]
             .values.tolist()
@@ -69,4 +69,4 @@ def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> set[str]:
     except FileNotFoundError:
         ids_checked = set()
 
-    return ids_checked
+    return set(ids_checked)

@@ -1,7 +1,9 @@
 from datetime import timedelta
 
 
-def performance(times: tuple[float, float], lenghts: tuple[int, int], ids: list[list[str]]) -> None:
+def performance(
+    times: tuple[float, float], lenghts: tuple[int, int], ids: list[list[str]]
+) -> None:
     start, end = times
     time_delta = timedelta(seconds=end - start)
 
@@ -14,7 +16,7 @@ def performance(times: tuple[float, float], lenghts: tuple[int, int], ids: list[
 
 
 def last_mod_date(lastmod: int) -> None:
-    print(f"Last mod. date retieved:\t{lastmod}")
+    print(f"Last mod. date retieved: {lastmod}")
 
 
 def lengths_status(lenghts: tuple[int, int]) -> None:
@@ -22,8 +24,12 @@ def lengths_status(lenghts: tuple[int, int]) -> None:
     print(f"Items current/total: {start_len}/{total_len}")
 
 
-def soup(lastmod: int, lenghts: tuple[int, int], ids: list[list[str]]) -> None:
+def soup(
+    lastmod: int,
+    lenghts: tuple[int, int] | None = None,
+    ids: list[list[str]] | None = None,
+) -> None:
     last_mod_date(lastmod=lastmod)
     if ids:
-        lengths = (len(subset) for subset in ids)
+        lenghts = (len(subset) for subset in ids)
     lengths_status(lenghts=lenghts)
