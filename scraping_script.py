@@ -1,20 +1,15 @@
 # %%
-import random
+import os
+import sys
 import time
-from os import path
 
 import pandas as pd
-import requests
-from mercatracker import etl, path
 
-import utils
-from mercatracker import globals, scraping, reporting, processing, api
+from mercatracker import etl, globals, path, reporting, scraping
 
 pd.set_option("future.no_silent_downcasting", True)
 
-config = globals.load_dotenv(
-    dotenv_shared=".env.shared",
-)
+config = globals.load_dotenv()
 
 soup = scraping.get_soup(url=config["URL_SITEMAP"])
 config["LAST_MOD_DATE"] = scraping.get_lastmod(soup)
@@ -22,14 +17,26 @@ all_ids = scraping.get_ids(soup)
 
 filename = path.build(config["ITEMS_FOLDER"], config["LAST_MOD_DATE"], "csv")
 
-ids_checked = scraping.get_current_ids(filename=filename, dtypes={"id": str})
-
-ids = (ids_checked, all_ids)
+ids_checked = scraping.get_current_ids(filename=filename)
+ids = (ids_checked.copy(), all_ids)
 
 reporting.soup(config["LAST_MOD_DATE"], ids=ids)
 
-
 start = time.monotonic()
-etl.scrape_items(ids, filename=filename)
-end = time.monotonic()
-reporting.performance(times=(start, end), ids=ids)
+try:
+    etl.scrape_items(ids, filename=filename)
+except KeyboardInterrupt:
+    print("Exiting script...")
+    reporting.performance(
+        times=(start, time.monotonic()),
+        ids=(
+            ids_checked,
+            scraping.get_current_ids(filename=filename),
+        ),
+    )
+    try:
+        sys.exit(130)
+    except SystemExit:
+        os._exit(130)
+else:
+    reporting.performance(times=(start, time.monotonic()), ids=ids)

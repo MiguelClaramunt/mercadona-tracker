@@ -1,21 +1,29 @@
 from datetime import timedelta
+import datetime
 
 
 def performance(
-    times: tuple[float, float], lenghts: tuple[int, int], ids: list[list[str]]
+    times: tuple[float, float], 
+    ids: list[list[str]]|list[int]
 ) -> None:
+    """_summary_
+
+    Args:
+        times (tuple[float, float]): tuple[start, end]; len(start) < len(end)
+        ids (list[list[str]]): _description_
+    """
     start, end = times
     time_delta = timedelta(seconds=end - start)
+    
+    start_len, total_len = (len(subset) for subset in ids)
 
-    if ids:
-        lengths = (len(subset) for subset in ids)
-    start_len, total_len = lenghts
-    len_delta = total_len - start_len
-
-    print(f"Elapsed: {time_delta} ({(time_delta / (len_delta)).total_seconds()}) s/it")
+    print(f'Items recovered: {total_len - start_len}')
+    print(f"Elapsed: {time_delta} ({(time_delta / (total_len - start_len)).total_seconds():.3f}) s/it")
 
 
-def last_mod_date(lastmod: int) -> None:
+def last_mod_date(lastmod: int, to_date: bool = False) -> None:
+    if to_date:        
+        lastmod = datetime.strptime(str(lastmod), r"%Y%m%d")
     print(f"Last mod. date retieved: {lastmod}")
 
 
@@ -26,10 +34,11 @@ def lengths_status(lenghts: tuple[int, int]) -> None:
 
 def soup(
     lastmod: int,
-    lenghts: tuple[int, int] | None = None,
-    ids: list[list[str]] | None = None,
+    ids: list[list[str]],
 ) -> None:
     last_mod_date(lastmod=lastmod)
-    if ids:
-        lenghts = (len(subset) for subset in ids)
-    lengths_status(lenghts=lenghts)
+    lengths_status(lenghts=(len(subset) for subset in ids))
+
+
+# def etl_db() -> None:
+

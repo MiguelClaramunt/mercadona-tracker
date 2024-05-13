@@ -5,7 +5,7 @@ import dotenv
 
 
 def load_dotenv(
-    dotenv_shared: str = "",
+    dotenv_shared: str = ".env.shared",
     dotenv_secret: str = "",
     os_environ: bool = False,
 ) -> dict:
@@ -29,10 +29,7 @@ def load_dotenv(
     else:
         os_environ = dict()
 
-    config = refresh_variables(config=env_shared | env_secret | os_environ)
-    config = concatenate_config_columns(
-        config=config, variable="COLUMNS_TO_CONCATENATE"
-    )
+    config = dotenv_pipeline(env_shared | env_secret | os_environ)
 
     return config
 
@@ -64,3 +61,27 @@ def concatenate_config_columns(
         config[var] = sum([config[column] for column in config[var]], [])
 
     return config
+
+
+def generate_etl_parameters(config: dict, variable: str = "ETL_PARAMETERS") -> dict:
+    for i, parameters in enumerate(config[variable]):
+        for column in ("columns_to_select", "columns_to_hash"):
+            try:
+                config[variable][i][column] = config[parameters[column]]
+            except TypeError:
+                continue
+
+    return config
+
+
+def dotenv_pipeline(dicts: dict) -> dict:
+  config = refresh_variables(config=dicts)
+  config = concatenate_config_columns(config=config, variable="COLUMNS_TO_CONCATENATE")
+  config = generate_etl_parameters(config, variable="ETL_PARAMETERS")
+
+  return config
+
+
+
+
+
