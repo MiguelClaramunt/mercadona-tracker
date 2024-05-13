@@ -1,6 +1,7 @@
 import glob
 from os import path
 from pathlib import Path
+import time
 
 import pandas as pd
 import sqlite3
@@ -24,18 +25,16 @@ def scrape_items(ids: list[list[str]], filename: str) -> None:
                     response = api.call(id)
                     if response.status_code == 200:
                         df = processing.process(
-                            response, columns=config["ITEMS_COLUMNS"]
+                            response, columns=config["_ITEMS_COLUMNS"]
                         )
                         processing.df2csv(
                             df,
                             filename,
-                            columns=config["ITEMS_CSV_COLUMNS"],
+                            columns=config["ITEMS_COLUMNS"],
                         )
                         checked.add(id)
                     if response.status_code == 410:
                         all_ids.pop(all_ids.index(id))
-                else:
-                    continue
 
 
 def get_lastmod_csv(path: str) -> int:
@@ -59,8 +58,8 @@ def read_multiple(paths: list[str]) -> pd.DataFrame:
 
 def flatten_levels(
     df: pd.DataFrame,
-    cols_original: list[list[str]] = config["_CATEGORIES_JER_COLUMNS"],
-    cols_to_rename: list[str] = config["CATEGORIES_JER_COLUMNS"],
+    cols_original: list[list[str]] = config["_CATEGORIES_COLUMNS"],
+    cols_to_rename: list[str] = config["CATEGORIES_COLUMNS"],
 ) -> pd.DataFrame:
     level, name, ymd = cols_to_rename
     return pd.concat(
@@ -80,8 +79,8 @@ def flatten_levels(
 def generate_categories(paths: str) -> pd.DataFrame:
     return flatten_levels(
         read_multiple(paths).dropna(subset=config["CATEGORIES"]),
-        config["_CATEGORIES_JER_COLUMNS"],
-        config["CATEGORIES_JER_COLUMNS"],
+        config["_CATEGORIES_COLUMNS"],
+        config["CATEGORIES_COLUMNS"],
     )
 
 
@@ -106,13 +105,11 @@ def update_dataframe(
         df_updated = Hasher(
             generate_categories(recent_files)[columns_to_select],
             columns_to_hash=columns_to_hash,
-            target_column_name="hash",
         ).hash()
     else:
         df_updated = Hasher(
             read_multiple(recent_files)[columns_to_select],
             columns_to_hash=columns_to_hash,
-            target_column_name="hash",
         ).hash()
 
     df_current = pd.read_csv(path)
@@ -146,13 +143,11 @@ def update_database(
         df_updated = Hasher(
             generate_categories(recent_files)[columns_to_select],
             columns_to_hash=columns_to_hash,
-            target_column_name="hash",
         ).hash()
     else:
         df_updated = Hasher(
             read_multiple(recent_files)[columns_to_select],
             columns_to_hash=columns_to_hash,
-            target_column_name="hash",
         ).hash()
 
     query = f"""SELECT * FROM {table};"""
@@ -160,7 +155,11 @@ def update_database(
     df_current = pd.read_sql(query, conn)
 
     return (
-        pd.concat((df_current, df_updated))
+        get_new_rows(df_current, df_updated)
         .drop_duplicates(subset=subset_duplicates, keep="last")
         .reset_index(drop=True)
     )
+
+
+def get_new_rows(df_current: pd.DataFrame, df_updated: pd.DataFrame) -> pd.DataFrame:
+    return df_updated[~df_updated.hash.isin(df_current.hash)]

@@ -30,7 +30,7 @@ class AbstractHasher(abc.ABC):
         self,
         dataframe: pd.DataFrame,
         columns_to_hash: typing.List[str],
-        target_column_name: str,
+        target_column_name: str = "hash",
     ) -> "AbstractHasher":
 
         self.dataframe = dataframe.copy()

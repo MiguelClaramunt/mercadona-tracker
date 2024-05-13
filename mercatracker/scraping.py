@@ -1,4 +1,3 @@
-import datetime
 import re
 
 import pandas as pd
@@ -23,19 +22,19 @@ def get_soup(url: str = config["URL_SITEMAP"]) -> BeautifulSoup:
     return BeautifulSoup(xml, features="xml")
 
 
-def get_tag(soup, tag: str) -> str:
+def get_tag(soup: BeautifulSoup, tag: str) -> str:
     value = soup.find(tag).get_text("", True)
 
     return value
 
 
-def get_tags(soup, tag: str, skiprows: int = 1) -> list[str]:
+def get_tags(soup: BeautifulSoup, tag: str, skiprows: int = 1) -> list[str]:
     all_found = soup.find_all(tag)[skiprows:]
 
     return [found.get_text("", True) for found in all_found]
 
 
-def get_ids(soup) -> list[str]:
+def get_ids(soup: BeautifulSoup) -> list[str]:
     return search_all(get_tags(soup, tag="loc", skiprows=1), pattern=r"(\d+(?:\.\d+)?)")
 
 
@@ -49,7 +48,7 @@ def search(string, pattern) -> str:
         return search.group(1)
 
 
-def get_lastmod(soup) -> int:
+def get_lastmod(soup: BeautifulSoup) -> int:
     date = get_tag(soup, "lastmod")
     lastmod = dt.iso_date2custom_format(date, custom_format=config["FORMAT_DATE"])
     update_variable(
@@ -59,7 +58,7 @@ def get_lastmod(soup) -> int:
     return int(lastmod)
 
 
-def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> set[str]:
+def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> set[str,]:
     try:
         ids_checked = (
             pd.read_csv(filename, usecols=dtypes.keys(), dtype=dtypes)[dtypes.keys()]
