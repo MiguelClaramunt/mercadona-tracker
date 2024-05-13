@@ -1,6 +1,6 @@
 import random
 import time
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import requests
 
@@ -30,5 +30,5 @@ def build_url(id: str, params: dict = config["PARAMS_API"]) -> str:
 
 def call(id: str) -> requests.Response:
     url = build_url(id)
-    time.sleep(random.uniform(0, 0.95))
+    time.sleep(random.uniform(0, 1))
     return requests.get(url)

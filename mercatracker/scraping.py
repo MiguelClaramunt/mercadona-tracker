@@ -1,3 +1,4 @@
+import datetime
 import re
 
 import pandas as pd
@@ -5,14 +6,19 @@ import requests
 from bs4 import BeautifulSoup
 
 from mercatracker.globals import load_dotenv, update_variable
-from utils import dicts, dt
+from mercatracker import processing
 
 config = load_dotenv(".env.shared")
 
 
+def iso_date2custom_format(iso_date: str, custom_format: str) -> str:
+    date = datetime.date.fromisoformat(iso_date)
+    return date.strftime(custom_format)
+
+
 def process_response(response: requests.Response) -> str:
     item = response.json()
-    item = dicts.flatten_dict(item)
+    item = processing.flatten_dict(item)
     return item
 
 
@@ -50,7 +56,7 @@ def search(string, pattern) -> str:
 
 def get_lastmod(soup: BeautifulSoup) -> int:
     date = get_tag(soup, "lastmod")
-    lastmod = dt.iso_date2custom_format(date, custom_format=config["FORMAT_DATE"])
+    lastmod = iso_date2custom_format(date, custom_format=config["FORMAT_DATE"])
     update_variable(
         variable="LAST_MOD_DATE", value=lastmod, dotenv_file=config["DOTENV_SHARED"]
     )

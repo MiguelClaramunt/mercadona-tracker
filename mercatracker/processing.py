@@ -1,25 +1,57 @@
 from collections import Counter
-import datetime
 from itertools import product
 import os
-import random
-import time
+import re
 from urllib.parse import urlparse
 
-from dotenv import dotenv_values
-import dotenv
 import pandas as pd
 import requests
 
-from mercatracker import api, globals
+from mercatracker import globals
 from mercatracker import scraping
-from mercatracker.scraping import search
-from utils.dicts import flatten_dict_recursive
-from utils.pd_utils import remove_html_tags
+from collections.abc import MutableMapping
 
 config = globals.load_dotenv(
     dotenv_shared=".env.shared",
 )
+
+def remove_html_tags(string: str, pattern: str) -> str:
+    return re.sub(pattern, "", str(string))
+
+
+def batch_split(elements: list, batch_size: int) -> list[set[str]]:
+    return [
+        set(elements[i : i + batch_size]) for i in range(0, len(elements), batch_size)
+    ]
+
+
+def flatten_dict(
+    d: MutableMapping, parent_key: str = "", sep: str = "."
+) -> MutableMapping:
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, MutableMapping):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+
+    return dict(items)
+
+
+def flatten_dict_recursive(d):
+    out = {}
+    for key, val in d.items():
+        if isinstance(val, dict):
+            val = [val]
+        if isinstance(val, list):
+            for subdict in val:
+                deeper = flatten_dict_recursive(subdict).items()
+                out.update({key + "." + key2: val2 for key2, val2 in deeper})
+        else:
+            out[key] = val
+
+    return out
 
 
 def transform_suppliers(suppliers_list: list) -> str:
@@ -191,7 +223,7 @@ def items2df_old(
 def df2csv(
     df: pd.DataFrame,
     path: str,
-    columns: list|None,
+    columns: list | None,
     force_replace: bool = False,
 ) -> None:
 
@@ -201,6 +233,6 @@ def df2csv(
         df.to_csv(path, mode="a", header=False, index=False, columns=columns)
 
 
-def process(response: requests.Response, columns = list[str]) -> pd.DataFrame:
+def process(response: requests.Response, columns=list[str]) -> pd.DataFrame:
     item = scraping.process_response(response)
     return items2df_old(item, columns=columns)

@@ -1,14 +1,11 @@
 import glob
-from os import path
 from pathlib import Path
-import time
 
 import pandas as pd
 import sqlite3
 
-from mercatracker import api, globals, processing, reporting, scraping
-import utils
-from utils.hasher import Hasher
+from mercatracker import api, globals, processing, scraping
+from mercatracker.hasher import Hasher
 
 
 config = globals.load_dotenv(
@@ -18,7 +15,7 @@ config = globals.load_dotenv(
 
 def scrape_items(ids: list[list[str]], filename: str) -> None:
     checked, all_ids = ids
-    for batch in utils.batch_split(all_ids, batch_size=500):
+    for batch in processing.batch_split(all_ids, batch_size=500):
         if not batch <= checked:
             for id in batch:
                 if id not in checked and id:
