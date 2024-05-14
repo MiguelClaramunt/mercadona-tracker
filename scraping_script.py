@@ -5,22 +5,25 @@ import time
 
 import pandas as pd
 
-from mercatracker import etl, globals, path, reporting, scraping
+from mercatracker import etl, globals, path, reporting, scraping, temporal
 
 pd.set_option("future.no_silent_downcasting", True)
 
 config = globals.load_dotenv()
 
-soup = scraping.get_soup(url=config["URL_SITEMAP"])
-config["LAST_MOD_DATE"] = scraping.get_lastmod(soup)
-all_ids = scraping.get_ids(soup)
+filename = path.build(config["ITEMS_FOLDER"], config["LASTMOD_DATE"], "csv")
 
-filename = path.build(config["ITEMS_FOLDER"], config["LAST_MOD_DATE"], "csv")
+if not temporal.updated_ids():
+    soup = scraping.get_soup(url=config["URL_SITEMAP"])
+    config["LASTMOD_DATE"] = scraping.get_lastmod(soup)
+    all_ids = scraping.get_ids(soup)
+else:
+    all_ids = config["ALL_IDS"]
 
 ids_checked = scraping.get_current_ids(filename=filename)
 ids = (ids_checked.copy(), all_ids)
 
-reporting.soup(config["LAST_MOD_DATE"], ids=ids)
+reporting.soup(config["LASTMOD_DATE"], ids=ids)
 
 start = time.monotonic()
 try:
