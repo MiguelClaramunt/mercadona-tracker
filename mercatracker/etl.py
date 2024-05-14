@@ -13,7 +13,7 @@ config = globals.load_dotenv(
 )
 
 
-def scrape_items(ids: list[list[str]], filename: str) -> None:
+def scrape_items(ids: list[list[str]], filename: str) -> tuple[str, str]:
     checked, all_ids = ids
     for batch in processing.batch_split(all_ids, batch_size=500):
         if not batch <= checked:
@@ -32,6 +32,7 @@ def scrape_items(ids: list[list[str]], filename: str) -> None:
                         checked.add(id)
                     if response.status_code == 410:
                         all_ids.pop(all_ids.index(id))
+    return (checked, all_ids)
 
 
 def get_lastmod_csv(path: str) -> int:
@@ -55,10 +56,10 @@ def read_multiple(paths: list[str]) -> pd.DataFrame:
 
 def flatten_levels(
     df: pd.DataFrame,
-    cols_original: list[list[str]] = config["_CATEGORIES_COLUMNS"],
-    cols_to_rename: list[str] = config["CATEGORIES_COLUMNS"],
+    cols_final: list[list[str]] = config["_CATEGORIES_COLUMNS"],
+    cols_to_rename: list[str] = config["_CATEGORIES_JER"],
 ) -> pd.DataFrame:
-    level, name, ymd = cols_to_rename
+    level, name, ymd = cols_final
     return pd.concat(
         (
             df[col].rename(
@@ -68,7 +69,7 @@ def flatten_levels(
                     df[col].columns[2]: ymd,
                 }
             )
-            for col in cols_original
+            for col in cols_to_rename
         )
     )
 
@@ -77,7 +78,7 @@ def generate_categories(paths: str) -> pd.DataFrame:
     return flatten_levels(
         read_multiple(paths).dropna(subset=config["CATEGORIES"]),
         config["_CATEGORIES_COLUMNS"],
-        config["CATEGORIES_COLUMNS"],
+        config["_CATEGORIES_JER"],
     )
 
 
@@ -135,6 +136,9 @@ def update_database(
 
     lastmod = get_lastmod_sql(table=table, col="ymd", conn=conn)
     recent_files = get_recent_files("./items/*.csv", lastmod=lastmod)
+
+    if not recent_files:
+        return pd.DataFrame(columns=columns_to_select)
 
     if table == "categories":
         df_updated = Hasher(
