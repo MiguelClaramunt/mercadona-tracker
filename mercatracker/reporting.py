@@ -14,8 +14,8 @@ def performance(times: tuple[float, float], ids: list[list[str]] | list[int]) ->
 
     start_len, total_len = (len(subset) for subset in ids)
 
-    print(f"Items recovered: {total_len - start_len - 1}")
-    if total_len - start_len:
+    print(f"Items recovered: {total_len - start_len}")
+    if not total_len - start_len:
         print(f"Elapsed: {time_delta}")
     else:
         print(
