@@ -2,10 +2,7 @@ import datetime
 from datetime import timedelta
 
 
-def performance(
-    times: tuple[float, float], 
-    ids: list[list[str]]|list[int]
-) -> None:
+def performance(times: tuple[float, float], ids: list[list[str]] | list[int]) -> None:
     """_summary_
 
     Args:
@@ -14,15 +11,20 @@ def performance(
     """
     start, end = times
     time_delta = timedelta(seconds=end - start)
-    
+
     start_len, total_len = (len(subset) for subset in ids)
 
-    print(f'Items recovered: {total_len - start_len}')
-    print(f"Elapsed: {time_delta} ({(time_delta / (total_len - start_len)).total_seconds():.3f}) s/it")
+    print(f"Items recovered: {total_len - start_len - 1}")
+    if total_len - start_len:
+        print(f"Elapsed: {time_delta}")
+    else:
+        print(
+            f"Elapsed: {time_delta} ({(time_delta / (total_len - start_len)).total_seconds():.3f}) s/it"
+        )
 
 
 def last_mod_date(lastmod: int, to_date: bool = False) -> None:
-    if to_date:        
+    if to_date:
         lastmod = datetime.strptime(str(lastmod), r"%Y%m%d")
     print(f"Last mod. date retieved: {lastmod}")
 
@@ -41,4 +43,3 @@ def soup(
 
 
 # def etl_db() -> None:
-
