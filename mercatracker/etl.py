@@ -1,12 +1,11 @@
 import glob
+import sqlite3
 from pathlib import Path
 
 import pandas as pd
-import sqlite3
 
-from mercatracker import api, globals, processing, scraping
+from mercatracker import api, globals, io, processing, scraping
 from mercatracker.hasher import Hasher
-
 
 config = globals.load_dotenv(
     dotenv_shared=".env.shared",
@@ -24,7 +23,7 @@ def scrape_items(ids: list[list[str]], filename: str) -> tuple[str, str]:
                         df = processing.process(
                             response, columns=config["_ITEMS_COLUMNS"]
                         )
-                        processing.df2csv(
+                        io.df2csv(
                             df,
                             filename,
                             columns=config["ITEMS_COLUMNS"],
@@ -32,7 +31,7 @@ def scrape_items(ids: list[list[str]], filename: str) -> tuple[str, str]:
                         checked.add(id)
                     if response.status_code == 410:
                         all_ids.pop(all_ids.index(id))
-    return (checked, all_ids)
+    # return (checked, all_ids)
 
 
 def get_lastmod_csv(path: str) -> int:
