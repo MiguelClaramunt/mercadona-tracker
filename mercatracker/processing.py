@@ -1,19 +1,17 @@
-from collections import Counter
-from itertools import product
 import os
 import re
+from collections import Counter
+from collections.abc import MutableMapping
+from itertools import product
 from urllib.parse import urlparse
 
 import pandas as pd
 import requests
 
-from mercatracker import globals
-from mercatracker import scraping
-from collections.abc import MutableMapping
+from mercatracker import globals, scraping
 
-config = globals.load_dotenv(
-    dotenv_shared=".env.shared",
-)
+config = globals.load_dotenv()
+
 
 def remove_html_tags(string: str, pattern: str) -> str:
     return re.sub(pattern, "", str(string))
@@ -25,16 +23,13 @@ def batch_split(elements: list, batch_size: int) -> list[set[str]]:
     ]
 
 
-def flatten_dict(
-    d: MutableMapping, parent_key: str = "", sep: str = "."
-) -> MutableMapping:
+def flatten_dict(d: MutableMapping, parent_key: str = "") -> MutableMapping:
     items = []
     for k, v in d.items():
-        new_key = parent_key + sep + k if parent_key else k
         if isinstance(v, MutableMapping):
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
+            items.extend(flatten_dict(v, k).items())
         else:
-            items.append((new_key, v))
+            items.append((k, v))
 
     return dict(items)
 
@@ -90,10 +85,80 @@ def extract_thumbnail_id(url: str) -> str:
     return os.path.splitext(os.path.basename(urlparse(url).path))[0]
 
 
+# def items2df(
+#     items: list | dict,
+#     columns: list,
+#     lastmod_date: int = -1,
+# ) -> pd.DataFrame:
+
+#     if isinstance(items, dict):
+#         df = pd.DataFrame([items], columns=columns)
+#     else:
+#         df = pd.DataFrame(items, columns=columns)
+
+#     if isinstance(lastmod_date, str):
+#         lastmod_date = int(lastmod_date)
+#         df["ymd"] = lastmod_date
+#     elif lastmod_date < 0 and columns == config["ITEMS_COLUMNS"]:
+#         lastmod_date = config["LASTMOD_DATE"]
+#         df["ymd"] = lastmod_date
+#     else:
+#         lastmod_date = df["ymd"]
+
+#     # df["extra_info"] = df["extra_info"].apply(
+#     #     lambda x: next(map(str, x)) if not x == None else None
+#     # )
+#     if "details.suppliers" in df.columns and isinstance(df["details.suppliers"], str):
+#         df["details.suppliers"] = df["details.suppliers"].apply(transform_suppliers)
+
+#     if "categories" in df.columns:
+#         df["l1"], df["l1_name"], df["l2"], df["l2_name"], df["l3"], df["l3_name"] = zip(
+#             *df["categories"].apply(
+#                 transform_categories, args=("categories", 2, ("id", "name"))
+#             )
+#         )
+#     if "is_bulk" in df.columns:
+#         df["is_bulk"] = df["is_bulk"].fillna(False)
+#     else:
+#         df["is_bulk"] = False
+
+#     df = df.drop(
+#         [
+#             "photos",
+#             "categories",
+#             "unavailable_weekdays",
+#             "limit",
+#             "share_url",
+#             "unavailable_from",
+#             "extra_info",
+#             # "details.suppliers",
+#             # "details.counter_info",
+#             # "details.danger_mentions",
+#             # "details.alcohol_by_volume",
+#             # "details.mandatory_mentions",
+#             # "details.production_variant",
+#             # "details.usage_instructions",
+#             # "details.storage_instructions",
+#             # "nutrition_information.allergens",
+#         ],
+#         axis=1,
+#         errors="ignore",
+#     )
+
+#     for col in ["nutrition_information.allergens", "nutrition_information.ingredients"]:
+#         df[col] = df[col].str.replace(
+#             r"<[^<]+>", ""
+#         )  # .apply(remove_html_tags, args=(r"<[^<]+>",))
+#     df["thumbnail"] = df["thumbnail"].str.extract(r"([\w|\d]{32})")
+
+#     # df = df.astype(config["ITEMS_DTYPES"])
+#     df = df.replace(r"^\s*$", None, regex=True)
+
+#     return df.convert_dtypes()
+
+
 def items2df(
-    items: list | dict,
-    columns: list,
-    last_mod_date: int = -1,
+    items: list | dict, lastmod_date: int = -1, columns: list = config["ITEMS_COLUMNS"]
 ) -> pd.DataFrame:
 
     if isinstance(items, dict):
@@ -101,88 +166,16 @@ def items2df(
     else:
         df = pd.DataFrame(items, columns=columns)
 
-    if isinstance(last_mod_date, str):
-        last_mod_date = int(last_mod_date)
-        df["ymd"] = last_mod_date
-    elif last_mod_date < 0 and columns == config["ITEMS_COLUMNS"]:
-        last_mod_date = config["LAST_MOD_DATE"]
-        df["ymd"] = last_mod_date
-    else:
-        last_mod_date = df["ymd"]
+    if isinstance(lastmod_date, str):
+        lastmod_date = int(lastmod_date)
+    elif lastmod_date < 0:
+        lastmod_date = config["LASTMOD_DATE"]
 
     # df["extra_info"] = df["extra_info"].apply(
     #     lambda x: next(map(str, x)) if not x == None else None
     # )
-    if "details.suppliers" in df.columns and isinstance(df["details.suppliers"], str):
-        df["details.suppliers"] = df["details.suppliers"].apply(transform_suppliers)
-
-    if "categories" in df.columns:
-        df["l1"], df["l1_name"], df["l2"], df["l2_name"], df["l3"], df["l3_name"] = zip(
-            *df["categories"].apply(
-                transform_categories, args=("categories", 2, ("id", "name"))
-            )
-        )
-    if "is_bulk" in df.columns:
-        df["is_bulk"] = df["is_bulk"].fillna(False)
-    else:
-        df["is_bulk"] = False
-
-    df = df.drop(
-        [
-            "photos",
-            "categories",
-            "unavailable_weekdays",
-            "limit",
-            "share_url",
-            "unavailable_from",
-            "extra_info",
-            # "details.suppliers",
-            # "details.counter_info",
-            # "details.danger_mentions",
-            # "details.alcohol_by_volume",
-            # "details.mandatory_mentions",
-            # "details.production_variant",
-            # "details.usage_instructions",
-            # "details.storage_instructions",
-            # "nutrition_information.allergens",
-        ],
-        axis=1,
-        errors="ignore",
-    )
-
-    for col in ["nutrition_information.allergens", "nutrition_information.ingredients"]:
-        df[col] = df[col].str.replace(
-            r"<[^<]+>", ""
-        )  # .apply(remove_html_tags, args=(r"<[^<]+>",))
-    df["thumbnail"] = df["thumbnail"].str.extract(r"([\w|\d]{32})")
-
-    # df = df.astype(config["ITEMS_DTYPES"])
-    df = df.replace(r"^\s*$", None, regex=True)
-
-    return df.convert_dtypes()
-
-
-def items2df_old(
-    items: list | dict, last_mod_date: int = -1, columns: list = config["ITEMS_COLUMNS"]
-) -> pd.DataFrame:
-
-    if isinstance(items, dict):
-        df = pd.DataFrame([items], columns=columns)
-    else:
-        df = pd.DataFrame(items, columns=columns)
-
-    if isinstance(last_mod_date, str):
-        last_mod_date = int(last_mod_date)
-    elif last_mod_date < 0:
-        last_mod_date = config["LAST_MOD_DATE"]
-
-    # df["extra_info"] = df["extra_info"].apply(
-    #     lambda x: next(map(str, x)) if not x == None else None
-    # )
-    if "details.suppliers" in df.columns and not isinstance(
-        df["details.suppliers"][0], str
-    ):
-        df["details.suppliers"] = df["details.suppliers"].apply(transform_suppliers)
+    if "suppliers" in df.columns and not isinstance(df["suppliers"][0], str):
+        df["suppliers"] = df["suppliers"].apply(transform_suppliers)
 
     if "categories" in df.columns:
         df["l1"], df["l1_name"], df["l2"], df["l2_name"], df["l3"], df["l3_name"] = zip(
@@ -209,10 +202,10 @@ def items2df_old(
         errors="ignore",
     )
 
-    for col in ["nutrition_information.allergens", "nutrition_information.ingredients"]:
+    for col in ["allergens", "ingredients"]:
         df[col] = df[col].apply(remove_html_tags, args=(r"<[^<]+>",))
     df["thumbnail"] = df["thumbnail"].apply(extract_thumbnail_id)
-    df["ymd"] = last_mod_date
+    df["ymd"] = lastmod_date
 
     # df = df.astype(config["ITEMS_DTYPES"])
     df = df.replace(r"^\s*$", None, regex=True)
@@ -220,9 +213,8 @@ def items2df_old(
     return df.convert_dtypes()
 
 
-
-
-
-def process(response: requests.Response, columns=list[str]) -> pd.DataFrame:
+def process(
+    response: requests.Response, lastmod: int, columns=list[str]
+) -> pd.DataFrame:
     item = scraping.process_response(response)
-    return items2df_old(item, columns=columns)
+    return items2df(item, lastmod_date=lastmod, columns=columns)
