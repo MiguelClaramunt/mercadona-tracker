@@ -23,13 +23,16 @@ def batch_split(elements: list, batch_size: int) -> list[set[str]]:
     ]
 
 
-def flatten_dict(d: MutableMapping, parent_key: str = "") -> MutableMapping:
+def flatten_dict(
+    d: MutableMapping, parent_key: str = "", sep: str = "_"
+) -> MutableMapping:
     items = []
     for k, v in d.items():
+        new_key = sep + k if parent_key else k
         if isinstance(v, MutableMapping):
-            items.extend(flatten_dict(v, k).items())
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
-            items.append((k, v))
+            items.append((new_key, v))
 
     return dict(items)
 
@@ -162,9 +165,17 @@ def items2df(
 ) -> pd.DataFrame:
 
     if isinstance(items, dict):
-        df = pd.DataFrame([items], columns=columns)
+        df = (
+            pd.DataFrame([items])
+            .rename(columns={"_brand": "brand1", "_origin": "origin1"})
+            .rename(columns=lambda x: re.sub("^_", "", x))
+        )
     else:
-        df = pd.DataFrame(items, columns=columns)
+        df = (
+            pd.DataFrame(items)
+            .rename(columns={"_brand": "brand1", "_origin": "origin1"})
+            .rename(columns=lambda x: re.sub("^_", "", x))
+        )
 
     if isinstance(lastmod_date, str):
         lastmod_date = int(lastmod_date)
