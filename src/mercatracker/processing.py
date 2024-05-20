@@ -160,22 +160,22 @@ def extract_thumbnail_id(url: str) -> str:
 #     return df.convert_dtypes()
 
 
+def generate_dataframe(items: list | dict) -> pd.DataFrame:
+    if isinstance(items, dict):
+        df = pd.DataFrame([items])
+    else:
+        df = pd.DataFrame(items)
+    return df
+
+
 def items2df(
     items: list | dict, lastmod_date: int = -1, columns: list = config["ITEMS_COLUMNS"]
 ) -> pd.DataFrame:
-
-    if isinstance(items, dict):
-        df = (
-            pd.DataFrame([items])
-            .rename(columns={"_brand": "brand1", "_origin": "origin1"})
-            .rename(columns=lambda x: re.sub("^_", "", x))
-        )
-    else:
-        df = (
-            pd.DataFrame(items)
-            .rename(columns={"_brand": "brand1", "_origin": "origin1"})
-            .rename(columns=lambda x: re.sub("^_", "", x))
-        )
+    df = (
+        generate_dataframe(items)
+        .rename(columns={"_brand": "brand1", "_origin": "origin1"})
+        .rename(columns=lambda x: re.sub("^_", "", x))
+    )
 
     if isinstance(lastmod_date, str):
         lastmod_date = int(lastmod_date)
@@ -224,8 +224,8 @@ def items2df(
     return df.convert_dtypes()
 
 
-def process(
-    response: requests.Response, lastmod: int, columns=list[str]
-) -> pd.DataFrame:
-    item = scraping.process_response(response)
-    return items2df(item, lastmod_date=lastmod, columns=columns)
+# def process(
+#     response: requests.Response, lastmod: int, columns=list[str]
+# ) -> pd.DataFrame:
+#     item = scraping.process_response(response)
+#     return items2df(item, lastmod_date=lastmod, columns=columns)

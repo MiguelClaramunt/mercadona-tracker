@@ -2,8 +2,8 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,windows
 
 # Project
-.env.secret
-mercadona.db
+secret.env
+*.db
 items/
 categories/
 prices/

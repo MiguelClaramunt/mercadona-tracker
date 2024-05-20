@@ -4,7 +4,7 @@ import sqlite3
 from mercatracker import etl, globals
 
 config = globals.load_dotenv(
-    dotenv_shared=".env.shared",
+    dotenv_shared="shared.env",
 )
 
 
