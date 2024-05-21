@@ -30,7 +30,6 @@ class Product:
 
     @retry(requests.exceptions.Timeout, tries=-1, delay=30, jitter=(0, 30))
     def request(self) -> requests.Response:
-        time.sleep(1)
         return requests.get(self._url)
 
     def process(self, response: requests.Response) -> str:

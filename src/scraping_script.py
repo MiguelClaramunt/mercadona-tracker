@@ -4,7 +4,6 @@ import sys
 import time
 
 import pandas as pd
-
 from mercatracker import (
     api,
     globals,
@@ -39,6 +38,7 @@ try:
     for id in all_ids:
         if id not in checked and id:
             product = api.Product(id=id, params=config["PARAMS_API"])
+            time.sleep(0.5)
             response = product.request()
             if response.status_code == 200:
                 item = product.process(response)
@@ -65,7 +65,7 @@ except KeyboardInterrupt:
     reporting.performance(
         times=(start, time.monotonic()),
         ids=(
-            checked,
+            ids[0],
             scraping.get_current_ids(filename=filename),
         ),
     )
