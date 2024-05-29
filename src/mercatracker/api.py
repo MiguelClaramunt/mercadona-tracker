@@ -1,3 +1,4 @@
+import itertools
 import time
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -5,9 +6,10 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import requests
 from retry import retry
 
-from mercatracker import globals, processing
+from mercatracker import processing
+from mercatracker.config import Config
 
-config = globals.load_dotenv()
+config = Config().load()
 
 
 @dataclass
@@ -35,3 +37,39 @@ class Product:
     def process(self, response: requests.Response) -> str:
         item = response.json()
         return processing.flatten_dict(item)
+
+    def request_force_retry(self) -> requests.Response:
+        retry_count = itertools.count()
+        while True:
+            try:
+                counter = next(retry_count)
+                # get with timeout and convert http errors to exceptions
+                resp = requests.get(
+                    self._url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.6496.3 Safari/537.36",
+                    },
+                )
+                if resp.status_code == 410:
+                    return resp
+                if resp.status_code == 429 and counter <= 10:
+                    time.sleep(counter * 15)
+                    continue
+                if resp.status_code == 504:
+                    continue
+                resp.raise_for_status()
+            # the things you want to recover from
+            except requests.Timeout or requests.HTTPError:
+                # if next(retry_count) <= 10:
+                #     print("timeout, wait and retry:", e)
+                #     time.sleep(retry_count * 30)
+                #     continue
+                # else:
+                print("timeout, exiting")
+                raise  # reraise exception to exit
+            except Exception as e:
+                print("unrecoverable error", e)
+                raise
+            break
+
+        return resp
