@@ -1,8 +1,8 @@
 import datetime
 
-from mercatracker import globals
+from mercatracker.config import Config
 
-config = globals.load_dotenv()
+config = Config().load()
 
 
 def iso_date2custom_format(iso_date: str, custom_format: str) -> str:
