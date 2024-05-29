@@ -4,74 +4,65 @@ import sys
 import time
 
 import pandas as pd
-from mercatracker import (
-    api,
-    globals,
-    io,
-    path,
-    processing,
-    reporting,
-    scraping,
-    temporal,
-)
+from tqdm import tqdm
+
+from mercatracker import api, io, processing, reporting
+from mercatracker.config import Config
+from mercatracker.scraper import Soup
 
 pd.set_option("future.no_silent_downcasting", True)
 
-config = globals.load_dotenv()
+config = Config().load()
 
-if not temporal.updated_ids():
-    soup = scraping.get_soup(url=config["URL_SITEMAP"])
-    config["LASTMOD_DATE"] = scraping.get_lastmod(soup)
-    all_ids = scraping.get_ids(soup)
+soup = Soup(url=config["URL_SITEMAP"]).request()
+LASTMOD_DATE = soup.get_lastmod()
+
+if not LASTMOD_DATE == str(config["LASTMOD_DATE"]):
+    config["LASTMOD_DATE"] = LASTMOD_DATE
+    all_ids = soup.get_ids()
+    config.update(file="temp", var={"LASTMOD_DATE": LASTMOD_DATE})
 else:
     all_ids = config["ALL_IDS"]
 
-filename = path.build(config["ITEMS_FOLDER"], config["LASTMOD_DATE"], "csv")
-
-checked = scraping.get_current_ids(filename=filename)
-ids = (checked.copy(), all_ids)
-
-reporting.soup(config["LASTMOD_DATE"], ids=ids)
-
-start = time.monotonic()
-try:
-    for id in all_ids:
-        if id not in checked and id:
-            product = api.Product(id=id, params=config["PARAMS_API"])
-            time.sleep(0.5)
-            response = product.request()
-            if response.status_code == 200:
-                item = product.process(response)
-                df = processing.items2df(
-                    item,
-                    lastmod_date=config["LASTMOD_DATE"],
-                    columns=config["_ITEMS_COLUMNS"],
-                )
-                io.df2csv(
-                    df,
-                    filename,
-                    columns=config["ITEMS_COLUMNS"],
-                )
-                checked.add(id)
-            if response.status_code == 410:
-                all_ids.pop(all_ids.index(id))
-                globals.update_variable(
-                    variables={"ALL_IDS": str(all_ids)},
-                    file=config["DOTENV_TEMP"],
-                )
-
-except KeyboardInterrupt:
-    print("Exiting script...")
-    reporting.performance(
-        times=(start, time.monotonic()),
-        ids=(
-            ids[0],
-            scraping.get_current_ids(filename=filename),
-        ),
+file = io.File(config[["ROOT_PATH", "ITEMS_FOLDER", "LASTMOD_DATE"]], ".csv")
+file.write_header(
+    pd.DataFrame(columns=config["ITEMS_COLS"]).to_csv(
+        header=True, index=False, columns=config["ITEMS_COLS"]
     )
+)
+
+checked = file.read(dtypes={"id": str})
+
+ids = set(all_ids) - set(checked)
+reporting.soup(config["LASTMOD_DATE"])
+
+with tqdm(total=len(ids)) as pbar:
     try:
-        sys.exit(130)
-    except SystemExit:
-        os._exit(130)
-else:
-    reporting.performance(times=(start, time.monotonic()), ids=ids)
+        for id in ids:
+            if id and id not in checked:
+                product = api.Product(id=id, params=config["PARAMS_API"])
+                time.sleep(0.5)
+                response = product.request_force_retry()
+                if response.status_code == 200:
+                    item = product.process(response)
+                    df = processing.items2df(
+                        item,
+                        lastmod_date=config["LASTMOD_DATE"],
+                        columns=config["_ITEMS_COLS"],
+                    )
+                    io.df2csv(
+                        df,
+                        file.path,
+                        columns=config["ITEMS_COLS"],
+                    )
+                    checked.append(id)
+                    pbar.update(1)
+                if response.status_code == 410:
+                    all_ids.pop(all_ids.index(id))
+                    config.update(file="temp", var={"ALL_IDS": all_ids})
+
+    except KeyboardInterrupt:
+        try:
+            sys.exit(130)
+        except SystemExit:
+            os._exit(130)
