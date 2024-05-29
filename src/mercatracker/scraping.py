@@ -1,19 +1,20 @@
 import re
+from typing import List
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from mercatracker import processing, temporal
-from mercatracker.globals import load_dotenv, update_variable
+from mercatracker import temporal
+from mercatracker.config import Config
 
-config = load_dotenv("shared.env")
+config = Config().load()
 
 
-def process_response(response: requests.Response) -> str:
-    item = response.json()
-    item = processing.flatten_dict(item)
-    return item
+# def process_response(response: requests.Response) -> str:
+#     item = response.json()
+#     item = processing.flatten_dict(item)
+#     return item
 
 
 def get_soup(url: str = config["URL_SITEMAP"]) -> BeautifulSoup:
@@ -38,14 +39,14 @@ def get_ids(soup: BeautifulSoup) -> list[str]:
     all_ids = search_all(
         get_tags(soup, tag="loc", skiprows=1), pattern=r"(\d+(?:\.\d+)?)"
     )
-    update_variable(
-        variables={"ALL_IDS": str(all_ids)}, file=config["DOTENV_TEMP"]
-    )
+    config.update(var={"ALL_IDS": str(all_ids)})
     return all_ids
 
 
 def search_all(strings: list[str], pattern: str = r"(\d+(?:\.\d+)?)") -> list[str]:
-    return [search(string=string, pattern=pattern) for string in strings]
+    return [
+        found.group(1) for string in strings if (found := re.search(pattern, string))
+    ]
 
 
 def search(string, pattern) -> str:
@@ -57,14 +58,12 @@ def search(string, pattern) -> str:
 def get_lastmod(soup: BeautifulSoup) -> int:
     date = get_tag(soup, "lastmod")
     lastmod = temporal.iso_date2custom_format(date, custom_format=config["FORMAT_DATE"])
-    update_variable(
-        variables={"LASTMOD_DATE": lastmod}, file=config["DOTENV_TEMP"]
-    )
+    config.update(var={"LASTMOD_DATE": lastmod})
 
     return int(lastmod)
 
 
-def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> set[str,]:
+def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> List[str,]:
     try:
         ids_checked = (
             pd.read_csv(filename, usecols=dtypes.keys(), dtype=dtypes)[dtypes.keys()]
@@ -72,6 +71,6 @@ def get_current_ids(filename: str, dtypes: dict = {"id": str}) -> set[str,]:
             .values.tolist()
         )
     except FileNotFoundError:
-        ids_checked = set()
+        ids_checked = list()
 
-    return set(ids_checked)
+    return ids_checked
