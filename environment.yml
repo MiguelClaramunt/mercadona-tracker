@@ -5,8 +5,14 @@ channels:
 dependencies:
   - backoff
   - bs4
+  - conda-forge::python-dotenv
+  - ipykernel
+  - keyboard
+  - lxml
+  - matplotlib
   - numpy
   - pandas
+  - plotly=5.22.0
   - python=3.12
   - ratelimit
   - requests
@@ -17,5 +23,7 @@ dependencies:
   - plotly=5.22.0
   - keyboard
   - retry
-  - matplotlib
-prefix: C:\Users\migue\miniconda3\envs\merca
+  - ruff
+  - pytest
+  - tqdm
+prefix: /home/miguel/miniconda3/envs/merca

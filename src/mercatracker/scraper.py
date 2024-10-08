@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass, field
 from functools import partial
 from operator import is_not
-from typing import List
+from typing import List, Self
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,7 +15,7 @@ class Soup:
     url: str
     soup: BeautifulSoup = field(init=False)
 
-    def request(self) -> "Soup":
+    def request(self) -> Self:
         xml = requests.get(self.url).text
         self.soup = BeautifulSoup(xml, features="xml")
         return self
@@ -30,8 +30,9 @@ class Soup:
 
     def get_ids(self) -> List[str]:
         strings = self.get_tags(tag="loc", skiprows=1)
+        ids = self.search(strings, pattern=r"(\d+(?:\.\d+)?)")
 
-        return self.search(strings, pattern=r"(\d+(?:\.\d+)?)")
+        return [id for id in ids if id]
 
     @classmethod
     def search(cls, strings: list[str], pattern: str = r"(\d+(?:\.\d+)?)") -> list[str]:
@@ -48,8 +49,8 @@ class Soup:
     #     if search:
     #         return search.group(1)
 
-    def get_lastmod(self) -> int:
+    def get_lastmod(self) -> str:
         date = self.get_tag("lastmod")
-        lastmod = temporal.iso_date2custom_format(date)
+        self.lastmod = temporal.iso_date2custom_format(date)
 
-        return int(lastmod)
+        return self.lastmod

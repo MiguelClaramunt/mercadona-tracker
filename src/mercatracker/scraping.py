@@ -58,7 +58,7 @@ def search(string, pattern) -> str:
 def get_lastmod(soup: BeautifulSoup) -> int:
     date = get_tag(soup, "lastmod")
     lastmod = temporal.iso_date2custom_format(date, custom_format=config["FORMAT_DATE"])
-    config.update(var={"LASTMOD_DATE": lastmod})
+    config.update(var={"LASTMOD": lastmod})
 
     return int(lastmod)
 

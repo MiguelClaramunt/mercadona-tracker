@@ -1,30 +1,39 @@
 import ast
 import glob
-import os
 from dataclasses import dataclass, field
 from itertools import chain
 from pathlib import Path
-from typing import Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List, Union
 
 import dotenv
+
+from mercatracker.path import build, get_project_dir
+from typing import Self
 
 
 @dataclass
 class Config:
-    paths: Union[Dict[str, str], None] = None
-    os: Union[bool, None] = None
+    paths: Dict[str, str] | None = None
+    os: bool | None = None
     dict_: dict = field(init=False)
 
     def __getitem__(self, item: Union[str, Iterable[str,]]):
         if isinstance(item, str):
             return self.dict_[item]
         elif isinstance(item, Iterable) and all(isinstance(i, str) for i in item):
-            return *(self.dict_[key] for key in item),
+            return (*(self.dict_[key] for key in item),)
         else:
             raise TypeError("Key must be a string or a list of strings.")
 
+    def __getattr__(self, attr):
+        return self.dict_[attr.upper()]
+
+    def __setitem__(self, key, value):
+        self.dict_[key] = value
+        # setattr(self.dict_, key, value)
+
     @classmethod
-    def _search(cls, path: str) -> list:
+    def _search(cls, path: str) -> dict[str, str]:
         return {Path(path).stem: path for path in glob.glob(pathname=path)}
 
     @classmethod
@@ -39,11 +48,12 @@ class Config:
     def __post_init__(self):
         if self.paths is None:
             self.paths = self._search(
-                os.path.expanduser("~/git/mercadona-tracker/*.env")
+                build((get_project_dir(), "src", "*"), ".env")
+                # path.build((path.get_project_dir(), "*"), ".env")
             )
         self.dict_ = self._load_dotenv(self.paths)
 
-    def _refresh(self) -> "Config":
+    def _refresh(self) -> Self:
         for variable in self.dict_.keys():
             try:
                 self.dict_[variable] = ast.literal_eval(self.dict_[variable])
@@ -52,7 +62,7 @@ class Config:
 
         return self
 
-    def load(self, postprocess: bool = True) -> "Config":
+    def load(self, postprocess: bool = True) -> Self:
         self.dict_ = self._load_dotenv(self.paths)
         self._refresh()
 
@@ -63,7 +73,7 @@ class Config:
 
         return self
 
-    def _convert_aliases(self, meta_var: str = "COLS_WITH_ALIASES") -> "Config":
+    def _convert_aliases(self, meta_var: str = "COLS_WITH_ALIASES") -> Self:
         """Convert aliases into its values from a meta-variable.
 
         From aliases `YMD`, `CATEGORIES_FINAL`; and the meta-variable
@@ -87,7 +97,7 @@ class Config:
 
         return self
 
-    def _generate_etl_parameters(self, meta_var: str = "ETL_PARAMETERS") -> "Config":
+    def _generate_etl_parameters(self, meta_var: str = "ETL_PARAMETERS") -> Self:
         for i, parameters in enumerate(self.dict_[meta_var]):
             for column in ("cols_to_select", "cols_to_hash"):
                 try:
@@ -97,6 +107,14 @@ class Config:
 
         return self
 
-    def update(self, var: Dict[str, str]) -> None:
+    def update(self, file: str, var: Dict[str, Any]) -> Any | None:
         for k, v in var.items():
-            dotenv.set_key(dotenv_path=self.paths["temp"], key_to_set=k, value_to_set=v)
+            dotenv.set_key(
+                dotenv_path=self.paths[file], key_to_set=k, value_to_set=str(v)
+            )
+        if len(var) == 1:
+            return var.values()
+
+    # @property
+    # def lastmod(self) -> int:
+    #     return self.dict_['LASTMOD']

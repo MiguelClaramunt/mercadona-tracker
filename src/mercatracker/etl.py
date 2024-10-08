@@ -4,38 +4,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from mercatracker import api, globals, io, path, processing, scraping
+from mercatracker import io, path, scraping
 from mercatracker.hasher import Hasher
+from mercatracker.config import Config
 
-config = globals.load_dotenv()
-
-
-def scrape_items(ids: list[list[str]], filename: str, lastmod: int) -> tuple[str, str]:
-    checked, all_ids = ids
-    for batch in processing.batch_split(all_ids, batch_size=500):
-        if not batch <= checked:
-            for id in batch:
-                if id not in checked and id:
-                    response = api.request(id)
-                    if response.status_code == 200:
-                        df = processing.process(
-                            response, lastmod=lastmod, columns=config["_ITEMS_COLUMNS"]
-                        )
-                        io.df2csv(
-                            df,
-                            filename,
-                            columns=config["ITEMS_COLUMNS"],
-                        )
-                        checked.add(id)
-                    if response.status_code == 410:
-                        all_ids.pop(all_ids.index(id))
-                        globals.update_variable(
-                            variables={"ALL_IDS": str(all_ids)},
-                            file=config["DOTENV_TEMP"],
-                        )
-
-    # return (checked, all_ids)
-
+config = Config().load()
 
 def get_lastmod_csv(path: str) -> int:
     return pd.read_csv(path, usecols=["ymd"]).max().values[0]
@@ -52,13 +25,9 @@ def get_recent_files(pathname: str, lastmod: int) -> list[str]:
     return [file for file in files if scraping.search(file, r"(\d{8})") > str(lastmod)]
 
 
-def read_multiple(paths: list[str]) -> pd.DataFrame:
-    return pd.concat((pd.read_csv(file) for file in paths), ignore_index=True)
-
-
 def flatten_levels(
     df: pd.DataFrame,
-    cols_final: list[list[str]] = config["_CATEGORIES_COLUMNS"],
+    cols_final: list[list[str]] = config["_CATEGORIES_COLS"],
     cols_to_rename: list[str] = config["_CATEGORIES_JER"],
 ) -> pd.DataFrame:
     level, name, ymd = cols_final
@@ -78,8 +47,8 @@ def flatten_levels(
 
 def generate_categories(paths: str) -> pd.DataFrame:
     return flatten_levels(
-        read_multiple(paths).dropna(subset=config["CATEGORIES"]),
-        config["_CATEGORIES_COLUMNS"],
+        io.read_multiple(paths).dropna(subset=config["CATEGORIES"]),
+        config["_CATEGORIES_COLS"],
         config["_CATEGORIES_JER"],
     )
 
@@ -108,7 +77,7 @@ def update_dataframe(
         ).hash()
     else:
         df_updated = Hasher(
-            read_multiple(recent_files)[columns_to_select],
+            io.read_multiple(recent_files)[columns_to_select],
             columns_to_hash=columns_to_hash,
         ).hash()
 
@@ -141,7 +110,7 @@ def update_database(
         recent_files = get_recent_files(glob_path, lastmod=lastmod)
     except pd.errors.DatabaseError:
         recent_files = glob.glob(glob_path)
-    
+
     if not recent_files:
         return pd.DataFrame(columns=columns_to_select)
 
@@ -152,10 +121,9 @@ def update_database(
         ).hash()
     else:
         df_updated = Hasher(
-            read_multiple(recent_files)[columns_to_select],
+            io.read_multiple(recent_files)[columns_to_select],
             columns_to_hash=columns_to_hash,
         ).hash()
-
 
     try:
         query = f"""SELECT * FROM {table};"""

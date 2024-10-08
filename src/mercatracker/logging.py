@@ -23,7 +23,7 @@ def performance(times: tuple[float, float], ids: list[list[str]] | list[int]) ->
         )
 
 
-def lastmod_date(lastmod: int, to_date: bool = False) -> None:
+def lastmod_date(lastmod: str, to_date: bool = False) -> None:
     if to_date:
         lastmod = datetime.strptime(str(lastmod), r"%Y%m%d")
     print(f"Last mod. date retieved: {lastmod}")
@@ -35,11 +35,12 @@ def lengths_status(lenghts: tuple[int, int]) -> None:
 
 
 def soup(
-    lastmod: int,
-    ids: list[list[str]],
+    lastmod: str,
+    ids: list[list[str]] = None,
 ) -> None:
     lastmod_date(lastmod=lastmod)
-    lengths_status(lenghts=(len(subset) for subset in ids))
+    if ids:
+        lengths_status(lenghts=(len(subset) for subset in ids))
 
 
 # def etl_db() -> None:

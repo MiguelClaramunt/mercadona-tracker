@@ -6,11 +6,10 @@ from itertools import product
 from urllib.parse import urlparse
 
 import pandas as pd
-import requests
 
-from mercatracker import globals, scraping
+from mercatracker.config import Config
 
-config = globals.load_dotenv()
+config = Config().load()
 
 
 def remove_html_tags(string: str, pattern: str) -> str:
@@ -103,7 +102,7 @@ def extract_thumbnail_id(url: str) -> str:
 #         lastmod_date = int(lastmod_date)
 #         df["ymd"] = lastmod_date
 #     elif lastmod_date < 0 and columns == config["ITEMS_COLUMNS"]:
-#         lastmod_date = config["LASTMOD_DATE"]
+#         lastmod_date = config['LASTMOD']
 #         df["ymd"] = lastmod_date
 #     else:
 #         lastmod_date = df["ymd"]
@@ -162,14 +161,13 @@ def extract_thumbnail_id(url: str) -> str:
 
 def generate_dataframe(items: list | dict) -> pd.DataFrame:
     if isinstance(items, dict):
-        df = pd.DataFrame([items])
-    else:
-        df = pd.DataFrame(items)
-    return df
+        items = [items]
+
+    return pd.DataFrame(items)
 
 
 def items2df(
-    items: list | dict, lastmod_date: int = -1, columns: list = config["ITEMS_COLUMNS"]
+    items: list | dict, lastmod_date: int = -1, columns: list = config["ITEMS_COLS"]
 ) -> pd.DataFrame:
     df = (
         generate_dataframe(items)
@@ -180,7 +178,7 @@ def items2df(
     if isinstance(lastmod_date, str):
         lastmod_date = int(lastmod_date)
     elif lastmod_date < 0:
-        lastmod_date = config["LASTMOD_DATE"]
+        lastmod_date = config["LASTMOD"]
 
     # df["extra_info"] = df["extra_info"].apply(
     #     lambda x: next(map(str, x)) if not x == None else None

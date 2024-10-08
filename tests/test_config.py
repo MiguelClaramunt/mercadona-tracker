@@ -1,122 +1,69 @@
 import pytest
-
-from mercatracker import config
-
-
-def test_load_dotenv_with_valid_path(tmp_path):
-    # Create a temporary .env file
-    env_file = tmp_path / ".env"
-    env_file.write_text("VAR1=value1\nVAR2=value2")
-
-    # Call the load_dotenv function with the path to the temporary .env file
-    env_vars = config.load_dotenv(str(env_file))
-
-    # Assert that the function correctly loads the environment variables
-    assert env_vars == {"VAR1": "value1", "VAR2": "value2"}
+from mercatracker.config import Config
 
 
-def test_load_dotenv_with_empty_file(tmp_path):
-    # Create a temporary empty .env file
-    env_file = tmp_path / ".env"
-    env_file.write_text("")
-
-    # Call the load_dotenv function with the path to the temporary .env file
-    env_vars = config.load_dotenv(str(env_file))
-
-    # Assert that the function returns an empty dictionary
-    assert env_vars == {}
+@pytest.fixture
+def mock_config():
+    return Config().load()
 
 
-def test_load_dotenv_with_no_path():
-    # Call the load_dotenv function with no path
-    env_vars = config.load_dotenv(None)
-
-    # Assert that the function returns an empty dictionary
-    assert env_vars == {}
-
-
-def test_load_dotenv_with_nonexistent_file():
-    # Call the load_dotenv function with a nonexistent file path
-    env_vars = config.load_dotenv("nonexistent.env")
-
-    # Assert that the function returns an empty dictionary
-    assert env_vars == {}
+def test_load(mock_config):
+    config = mock_config
+    assert config['ITEMS_FOLDER'] == 'items'
+    # assert temp_values == {"TEMP_VAR": "temp_value"}
+    # assert secret_values == {"SECRET_VAR": "secret_value"}
 
 
-def test_load_dotenv_with_test_env(tmp_path):
-    # Create a temporary .env file with the specified content
-    env_content = (
-        "TEST_STR = 'string'\n"
-        "TEST_DICT = {'lang': 'es', 'wh': 'vlc1'}\n"
-        "TEST_LIST = ['list']\n"
-    )
-    env_file = tmp_path / "test.env"
-    env_file.write_text(env_content)
+# def test_load_method(mock_config):
+#     config = mock_config
+#     config._config = {"COLUMNS_TO_CONCATENATE": {}, "ETL_PARAMETERS": []}
+#     config.load()
 
-    # Call the load_dotenv function with the path to the temporary .env file
-    env_vars = config.load_dotenv(str(env_file))
-
-    # Assert that the function correctly loads the environment variables
-    assert env_vars == {
-        "TEST_STR": "'string'",
-        "TEST_DICT": "{'lang': 'es', 'wh': 'vlc1'}",
-        "TEST_LIST": "['list']",
-    }
+#     assert config._config.get("SHARED_VAR") == "shared_value"
+#     assert config._config.get("TEMP_VAR") == "temp_value"
+#     assert config._config.get("SECRET_VAR") == "secret_value"
 
 
-def test_config_load_with_test_env(tmp_path):
-    # Create a temporary .env file with the specified content
-    env_content = (
-        "TEST_STR = 'string'\n"
-        "TEST_DICT = {'lang': 'es', 'wh': 'vlc1'}\n"
-        "TEST_LIST = ['list']\n"
-    )
-    env_file = tmp_path / "test.env"
-    env_file.write_text(env_content)
+# def test_refresh_method(mock_config):
+#     config = mock_config
+#     config._config = {
+#         "INT_VAR": "123",
+#         "FLOAT_VAR": "123.45",
+#         "STR_VAR": "some_string",
+#         "INVALID_VAR": "invalid_literal",
+#     }
+#     config._refresh()
 
-    # Initialize the Config object
-    conf = config.Config(shared=str(env_file))
-
-    # Load the configuration
-    conf.load()
-
-    # Assert that the configuration is correctly loaded and processed
-    assert conf._config["TEST_STR"] == "string"
-    assert conf._config["TEST_DICT"] == {"lang": "es", "wh": "vlc1"}
-    assert conf._config["TEST_LIST"] == ["list"]
+#     assert config._config["INT_VAR"] == 123
+#     assert config._config["FLOAT_VAR"] == 123.45
+#     assert config._config["STR_VAR"] == "some_string"
+#     assert config._config["INVALID_VAR"] == "invalid_literal"
 
 
-@pytest.mark.parametrize(
-    "env_var, expected_value",
-    [
-        ("TEST_STR", "string"),
-        ("TEST_DICT", {"lang": "es", "wh": "vlc1"}),
-        ("TEST_LIST", ["list"]),
-    ],
-)
-def test_config_variables(env_var, expected_value, tmp_path):
-    # Create a temporary .env file with the specified content
-    env_content = (
-        "TEST_STR = 'string'\n"
-        "TEST_DICT = {'lang': 'es', 'wh': 'vlc1'}\n"
-        "TEST_LIST = ['list']\n"
-    )
-    env_file = tmp_path / "test.env"
-    env_file.write_text(env_content)
+# def test_concatenate_cols_method(mock_config):
+#     config = mock_config
+#     config._config = {
+#         "COLUMNS_TO_CONCATENATE": {"col1": ["a", "b"], "col2": ["c", "d"]},
+#         "VAR_TO_CONCATENATE": ["col1", "col2"],
+#     }
+#     config._concatenate_cols(var_name="COLUMNS_TO_CONCATENATE")
 
-    # Initialize the Config object
-    conf = config.Config(shared=str(env_file))
-
-    # Load the configuration
-    conf.load()
-
-    # Assert that the specified environment variable is correctly processed
-    assert config._config[env_var] == expected_value
+#     assert config._config["col1"] == ["a", "b", "c", "d"]
+#     assert config._config["col2"] == ["c", "d"]
 
 
-# def test_load_dotenv():
-#     # config = Config(shared='.env.test')
-#     assert (config.load_dotenv('.env.test')['TEST_STR'] == 'string')
+# def test_generate_etl_parameters_method(mock_config):
+#     config = mock_config
+#     config._config = {
+#         "ETL_PARAMETERS": [{"columns_to_select": "col1", "columns_to_hash": "col2"}],
+#         "col1": ["a", "b"],
+#         "col2": ["c", "d"],
+#     }
+#     config._generate_etl_parameters(var_name="ETL_PARAMETERS")
+
+#     assert config._config["ETL_PARAMETERS"][0]["columns_to_select"] == ["a", "b"]
+#     assert config._config["ETL_PARAMETERS"][0]["columns_to_hash"] == ["c", "d"]
+
 
 if __name__ == "__main__":
-    config.Config(shared=".env.test")
+    pytest.main()

@@ -6,7 +6,7 @@ import time
 import pandas as pd
 from tqdm import tqdm
 
-from mercatracker import api, io, processing, reporting
+from mercatracker import api, io, logging, processing
 from mercatracker.config import Config
 from mercatracker.scraper import Soup
 
@@ -14,50 +14,55 @@ pd.set_option("future.no_silent_downcasting", True)
 
 config = Config().load()
 
-soup = Soup(url=config["URL_SITEMAP"]).request()
+soup = Soup(url=config.url_sitemap).request()
 LASTMOD_DATE = soup.get_lastmod()
 
-if not LASTMOD_DATE == str(config["LASTMOD_DATE"]):
-    config["LASTMOD_DATE"] = LASTMOD_DATE
+if not LASTMOD_DATE == str(config.lastmod):
+    config["LASTMOD"] = LASTMOD_DATE
     all_ids = soup.get_ids()
-    config.update(file="temp", var={"LASTMOD_DATE": LASTMOD_DATE})
+    config.update(file="temp", var={"LASTMOD": LASTMOD_DATE})
 else:
-    all_ids = config["ALL_IDS"]
+    all_ids = config.all_ids
 
-file = io.File(config[["ROOT_PATH", "ITEMS_FOLDER", "LASTMOD_DATE"]], ".csv")
-file.write_header(
-    pd.DataFrame(columns=config["ITEMS_COLS"]).to_csv(
-        header=True, index=False, columns=config["ITEMS_COLS"]
-    )
-)
+# file = io.File(config[["ROOT_PATH", "ITEMS_FOLDER", "LASTMOD"]], ".csv")
+# file.write_header(
+#     pd.DataFrame(columns=config.items_cols).to_csv(
+#         header=True, index=False, columns=config.items_cols
+#     )
+# )
+
+conn = libsql.connect("mercadona_2.db")
+cur = conn.cursor()
+
 
 checked = file.read(dtypes={"id": str})
 
 ids = set(all_ids) - set(checked)
-reporting.soup(config["LASTMOD_DATE"])
+logging.soup(config.lastmod)
 
 with tqdm(total=len(ids)) as pbar:
     try:
         for id in ids:
             if id and id not in checked:
-                product = api.Product(id=id, params=config["PARAMS_API"])
-                time.sleep(0.5)
-                response = product.request_force_retry()
-                if response.status_code == 200:
-                    item = product.process(response)
+                product = api.ProductSchema(id=id, params=config.params_api)
+                time.sleep(0.8)
+                request = api.ProductRequest(product.url).request()
+                if product.status == 200:
+                    product_processed = product.process()
                     df = processing.items2df(
-                        item,
-                        lastmod_date=config["LASTMOD_DATE"],
-                        columns=config["_ITEMS_COLS"],
+                        product_processed,
+                        lastmod_date=config.lastmod,
+                        columns=config._items_cols,
                     )
                     io.df2csv(
                         df,
                         file.path,
-                        columns=config["ITEMS_COLS"],
+                        columns=config.items_cols,
                     )
                     checked.append(id)
                     pbar.update(1)
-                if response.status_code == 410:
+                if product.status == 410:
+                    print(all_ids.index(id))
                     all_ids.pop(all_ids.index(id))
                     config.update(file="temp", var={"ALL_IDS": all_ids})
 
