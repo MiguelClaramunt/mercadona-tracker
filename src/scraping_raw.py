@@ -51,6 +51,7 @@ def main():
     ids = set(all_ids) - set(db.get_processed_ids(conn, lastmod))
     logging.soup(lastmod)
 
+    ### SINGLE THREAD PROCESSING ###
 
     # with tqdm(total=len(ids)) as pbar:
     #     try:
@@ -83,15 +84,16 @@ def main():
     #         except SystemExit:
     #             os._exit(130)
     
-    # Convert set to list
+    ### MULTI THREAD PROCESSING ###
+
     ids_ = list(ids)
 
-    # Process in batches of BATCH_SIZE
     with tqdm(total=len(ids_)) as pbar:
         for i in range(0, len(ids_), BATCH_SIZE):
             batch_ids = ids_[i:i + BATCH_SIZE]
             results = process_batch(batch_ids)
             
+            # write only valid requests to db
             valid_requests = [result for result in results if result.response.status_code == 200]
         
             for product in valid_requests:

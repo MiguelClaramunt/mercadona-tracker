@@ -1,8 +1,6 @@
 import asyncio
 import base64
-import itertools
 import json
-import time
 from dataclasses import dataclass, field
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -46,50 +44,19 @@ class ProductSchema(asyncio.Protocol):
 
         return urlunparse(url_parts)
 
-    def request_force_retry(self) -> requests.Response:
-        retry_count = itertools.count()
-        while True:
-            try:
-                counter = next(retry_count)
-                # get with timeout and convert http errors to exceptions
-                self.response = requests.get(
-                    self.url,
-                    headers={
-                        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
-                    },
-                    verify="/home/miguel/miniconda3/envs/merca/lib/python3.12/site-packages/certifi/cacert.pem",
-                    # verify=False,
-                )
-                if self.response.status_code == 200:
-                    # time.sleep(0.1)
-                    pass
-                elif self.response.status_code == 410:
-                    return self.response
-                elif self.response.status_code == 429 and counter <= 10:
-                    time.sleep(counter * 15)
-                    continue
-                elif self.response.status_code == 504:
-                    continue
-                self.response.raise_for_status()
-            # the things you want to recover from
-            except requests.Timeout or requests.HTTPError as e:
-                if next(retry_count) <= 10:
-                    print("timeout, wait and retry:", e)
-                    time.sleep(retry_count * 30)
-                    continue
-                else:
-                    print("timeout, exiting")
-                    raise  # reraise exception to exit
-            except requests.exceptions.SSLError:
-                raise
-            except Exception as e:
-                print("unrecoverable error", e)
-                raise
-            break
+    def request(self) -> requests.Response:
+        try:
+            self.response = requests.get(
+                self.url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
+                },
+                verify="/home/miguel/miniconda3/envs/merca/lib/python3.12/site-packages/certifi/cacert.pem",
+            )
+        except requests.exceptions.SSLError:
+            raise requests.exceptions.SSLError
 
         return self.response
-
-    # def request(self) -> Self:
 
     def post(self) -> Self:
         data = {"url": self.url, "httpResponseBody": True}
