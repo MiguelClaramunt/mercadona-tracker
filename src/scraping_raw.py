@@ -12,7 +12,7 @@ from mercatracker import api, db, logging
 from mercatracker.config import Config
 from mercatracker.scraper import Soup
 
-BATCH_SIZE = 50
+BATCH_SIZE = 40
 
 config = Config().load()
 
@@ -129,5 +129,5 @@ if __name__ == "__main__":
     try:
         main()
     except requests.exceptions.ConnectionError:
-        time.sleep(10)
+        time.sleep(30)
         main()
