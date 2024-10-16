@@ -5,6 +5,7 @@
 temp.env
 secret.env
 *.db
+*.db-journal
 items/
 categories/
 prices/
