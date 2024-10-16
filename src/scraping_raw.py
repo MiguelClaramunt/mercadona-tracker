@@ -1,5 +1,7 @@
 import concurrent
 import json
+import time
+import requests
 
 # import libsql_experimental as libsql
 import sqlite3
@@ -17,8 +19,8 @@ config = Config().load()
 
 def fetch_product_data(id, params):
     product = api.ProductSchema(id=id, params=params)
-    product.request()  # Perform the request
-    return product  # Return the ProductSchema instance
+    product.request()
+    return product  # return ProductSchema instance
 
 
 def process_batch(ids_batch):
@@ -39,6 +41,7 @@ def main():
     soup = Soup(url=config.url_sitemap).request()
     lastmod = soup.get_lastmod()
 
+    # scrape and write ids in db if they are not present
     if lastmod != db.get_lastmod(conn):
         all_ids = soup.get_ids()
         db.write_scraped_ids(
@@ -48,10 +51,10 @@ def main():
                 json.dumps(all_ids),
             ),
         )
-
-    else:
+    else: # retrieve scraped ids from db
         all_ids = db.get_scraped_ids(conn, lastmod)
 
+    # set intersection (all ids minus the processed ones present in db)
     ids = set(all_ids) - set(db.get_processed_ids(conn, lastmod))
     logging.soup(lastmod)
 
@@ -90,12 +93,12 @@ def main():
 
     ### MULTI THREAD PROCESSING ###
 
-    ids_ = list(ids)
+    ids = list(ids)
     invalid_requests = []
 
-    with tqdm(total=len(ids_)) as pbar:
-        for i in range(0, len(ids_), BATCH_SIZE):
-            batch_ids = ids_[i:i + BATCH_SIZE]
+    with tqdm(total=len(ids)) as pbar:
+        for i in range(0, len(ids), BATCH_SIZE):
+            batch_ids = ids[i:i + BATCH_SIZE]
             results = process_batch(batch_ids)
 
             # update tqdm's total counter
@@ -123,4 +126,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except requests.exceptions.ConnectionError:
+        time.sleep(10)
+        main()
