@@ -128,6 +128,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except requests.exceptions.ConnectionError:
+    except (requests.exceptions.ConnectionError, requests.exceptions.SSLError) as e:
+        print(e)
         time.sleep(30)
         main()
