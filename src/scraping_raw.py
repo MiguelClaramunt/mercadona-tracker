@@ -1,11 +1,11 @@
 import concurrent
 import json
-import time
-import requests
 
 # import libsql_experimental as libsql
 import sqlite3
+import time
 
+import requests
 from tqdm import tqdm
 
 from mercatracker import api, db, logging
@@ -51,7 +51,7 @@ def main():
                 json.dumps(all_ids),
             ),
         )
-    else: # retrieve scraped ids from db
+    else:  # retrieve scraped ids from db
         all_ids = db.get_scraped_ids(conn, lastmod)
 
     # set intersection (all ids minus the processed ones present in db)
@@ -98,7 +98,7 @@ def main():
 
     with tqdm(total=len(ids)) as pbar:
         for i in range(0, len(ids), BATCH_SIZE):
-            batch_ids = ids[i:i + BATCH_SIZE]
+            batch_ids = ids[i : i + BATCH_SIZE]
             results = process_batch(batch_ids)
 
             # update tqdm's total counter
@@ -114,16 +114,13 @@ def main():
             ]
 
             for product in valid_requests:
+                content = str(product.decode())  # convert product dict to string
                 db.write_dump(
                     conn,
-                    (
-                        product.id,
-                        str(product.decode()),
-                        lastmod,
-                    ),
+                    (product.id, content, lastmod, hash(content)),
                 )
                 pbar.update(1)
-    
+
     conn.close()
 
 

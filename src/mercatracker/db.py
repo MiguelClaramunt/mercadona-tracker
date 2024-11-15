@@ -8,6 +8,7 @@ def create_dumps_table(conn: sqlite3.Connection):
                     id TEXT,
                     ymd INT,
                     content TEXT,
+                    hash INT,
                     PRIMARY KEY (id, ymd)
                  );""")
     conn.commit()
@@ -26,7 +27,7 @@ def create_ids_scraped_table(conn: sqlite3.Connection):
 def write_dump(conn: sqlite3.Connection, parameters: tuple):
     create_dumps_table(conn)
     cur = conn.cursor()
-    cur.execute("""INSERT INTO dumps(id, content, ymd) VALUES(?,?,?)""", parameters)
+    cur.execute("""INSERT INTO dumps(id, content, ymd, hash) VALUES(?,?,?,?)""", parameters)
     conn.commit()
 
 
