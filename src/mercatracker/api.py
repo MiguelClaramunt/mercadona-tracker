@@ -1,27 +1,21 @@
-import asyncio
-import base64
-import json
 from dataclasses import dataclass, field
 from typing import Self
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import aiohttp
 import requests
-from requests.adapters import HTTPAdapter, Retry
 from yarl import URL
 
-from mercatracker import processing
 from mercatracker.config import Config
 
 config = Config().load()
 
 
 @dataclass
-class ProductSchema(asyncio.Protocol):
+class ProductSchema:
     id: str
     params: dict
     url: str = field(init=False)
-    headers = {"Content-Type": "application/json", "X-Api-Key": config.x_api_key}
+    headers = {"Content-Type": "application/json"}
 
     def __post_init__(self):
         # self.url = self.build_url()
@@ -58,20 +52,20 @@ class ProductSchema(asyncio.Protocol):
 
         return self.response
 
-    def post(self) -> Self:
-        data = {"url": self.url, "httpResponseBody": True}
-
-        self.response = requests.post(
-            config.proxyscrape_api_url, headers=self.headers, json=data
-        )
-        return self.response
-
-    def decode(self) -> Self:
+    def to_json(self) -> Self:
         # self.decoded = json.loads(
         #     base64.b64decode(self.response.json()["data"]["httpResponseBody"]).decode()
         # )
         self.decoded = self.response.json()
         return self.decoded
+
+    # def post(self) -> Self:
+    #     data = {"url": self.url, "httpResponseBody": True}
+
+    #     self.response = requests.post(
+    #         config.proxyscrape_api_url, headers=self.headers, json=data
+    #     )
+    #     return self.response
 
     # @Semaphore(2)
     # async def async_post(
@@ -93,67 +87,67 @@ class ProductSchema(asyncio.Protocol):
     #     except Exception as e:
     #         print(f"Error sending request: {e}")
 
-    async def async_post(self, session: aiohttp.ClientSession):
-        data = {"url": self.url, "httpResponseBody": True}
-        async with session.post(
-            config.proxyscrape_api_url, headers=self.headers, json=data
-        ) as response:
-            self.response = response.text()
+    # async def async_post(self, session: aiohttp.ClientSession):
+    #     data = {"url": self.url, "httpResponseBody": True}
+    #     async with session.post(
+    #         config.proxyscrape_api_url, headers=self.headers, json=data
+    #     ) as response:
+    #         self.response = response.text()
 
-    def async_decode(self):
-        self.decoded = json.loads(
-            base64.b64decode(
-                (json.loads(self.response))["data"]["httpResponseBody"]
-            ).decode()
-        )
-        return self.decoded
-
-
-@dataclass
-class ProductRequest(requests.Response):
-    # @retry(requests.exceptions.Timeout, tries=-1, delay=30, jitter=(0, 30))
-    def request(self, url) -> Self:
-        session = requests.Session()
-        retries = Retry(
-            total=None, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504]
-        )
-
-        session.mount("http://", HTTPAdapter(max_retries=retries))
-
-        response = session.get(
-            url,
-            headers=config.headers,
-            verify=config.verify,
-        )
-
-        self.status = response.status_code
-        self.response = response.json()
-
-        return self
-
-    def process(self) -> dict:
-        return processing.flatten_dict(self.response)
+    # def async_decode(self):
+    #     self.decoded = json.loads(
+    #         base64.b64decode(
+    #             (json.loads(self.response))["data"]["httpResponseBody"]
+    #         ).decode()
+    #     )
+    #     return self.decoded
 
 
-@dataclass
-class ProxyScrapeProductRequest(requests.Response):
-    headers = {"Content-Type": "application/json", "X-Api-Key": config.x_api_key}
+# @dataclass
+# class ProductRequest(requests.Response):
+#     # @retry(requests.exceptions.Timeout, tries=-1, delay=30, jitter=(0, 30))
+#     def request(self, url) -> Self:
+#         session = requests.Session()
+#         retries = Retry(
+#             total=None, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504]
+#         )
 
-    def post(
-        self,
-        url,
-    ) -> Self:
-        data = {"url": url, "httpResponseBody": True}
+#         session.mount("http://", HTTPAdapter(max_retries=retries))
 
-        self.response = requests.post(
-            config.proxyscrape_api_url, headers=self.headers, json=data
-        )
-        return self.response
+#         response = session.get(
+#             url,
+#             headers=config.headers,
+#             verify=config.verify,
+#         )
 
-    def decode(
-        self,
-    ) -> Self:
-        self.decoded = json.loads(
-            base64.b64decode(self.response.json()["data"]["httpResponseBody"]).decode()
-        )
-        return self.decoded
+#         self.status = response.status_code
+#         self.response = response.json()
+
+#         return self
+
+#     def process(self) -> dict:
+#         return processing.flatten_dict(self.response)
+
+
+# @dataclass
+# class ProxyScrapeProductRequest(requests.Response):
+#     headers = {"Content-Type": "application/json", "X-Api-Key": config.x_api_key}
+
+#     def post(
+#         self,
+#         url,
+#     ) -> Self:
+#         data = {"url": url, "httpResponseBody": True}
+
+#         self.response = requests.post(
+#             config.proxyscrape_api_url, headers=self.headers, json=data
+#         )
+#         return self.response
+
+#     def decode(
+#         self,
+#     ) -> Self:
+#         self.decoded = json.loads(
+#             base64.b64decode(self.response.json()["data"]["httpResponseBody"]).decode()
+#         )
+#         return self.decoded
