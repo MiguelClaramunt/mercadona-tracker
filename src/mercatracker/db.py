@@ -49,9 +49,11 @@ def get_processed_ids(conn: sqlite3.Connection, lastmod: str):
     return conn.execute("""SELECT id FROM dumps WHERE ymd=?""", (lastmod,)).fetchall()
 
 
-def get_scraped_ids(conn: sqlite3.Connection, lastmod: str):
-    ids = conn.execute("""SELECT ids FROM ids_scraped WHERE ymd=?""", (lastmod,)).fetchone()
-    return json.loads(ids)
+def get_scraped_ids(conn, ymd):
+    result = conn.execute("SELECT ids FROM ids_scraped WHERE ymd = ?", (ymd,)).fetchone()
+    if result:
+        return json.loads(result[0])  # Extract the string from the tuple
+    return []
 
 
 def select_from_table(conn: sqlite3.Connection, column_name: str, table_name: str):
