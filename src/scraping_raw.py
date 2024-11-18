@@ -1,4 +1,4 @@
-import concurrent
+import concurrent.futures
 import json
 
 # import libsql_experimental as libsql
@@ -42,7 +42,7 @@ def main():
     lastmod = soup.get_lastmod()
 
     # scrape and write ids in db if they are not present
-    if lastmod != db.get_lastmod(conn):
+    if lastmod != str(db.get_lastmod(conn)):
         all_ids = soup.get_ids()
         db.write_scraped_ids(
             conn,
@@ -51,12 +51,15 @@ def main():
                 json.dumps(all_ids),
             ),
         )
-    else:  # retrieve scraped ids from db
+    else: # retrieve scraped ids from db
         all_ids = db.get_scraped_ids(conn, lastmod)
 
+    processed_ids = db.get_processed_ids(conn, lastmod)
     # set intersection (all ids minus the processed ones present in db)
-    ids = set(all_ids) - set(db.get_processed_ids(conn, lastmod))
-    logging.soup(lastmod)
+    ids = list(set(all_ids) - set(processed_ids))
+    if not processed_ids:
+        logging.soup(lastmod)
+    invalid_requests = []
 
     ### SINGLE THREAD PROCESSING ###
 
@@ -93,20 +96,14 @@ def main():
 
     ### MULTI THREAD PROCESSING ###
 
-    ids = list(ids)
-    invalid_requests = []
-
     with tqdm(total=len(ids)) as pbar:
         for i in range(0, len(ids), BATCH_SIZE):
-            batch_ids = ids[i : i + BATCH_SIZE]
+            batch_ids = ids[i:i + BATCH_SIZE]
             results = process_batch(batch_ids)
 
-            # update tqdm's total counter
-            invalid_requests.append(
-                [result for result in results if result.response.status_code != 200]
-            )
-            pbar.total = len(ids) - len(invalid_requests[0])
-            pbar.refresh()
+            invalid_requests += [
+                result.id for result in results if result.response.status_code != 200
+            ]
 
             # write only valid requests to db
             valid_requests = [
@@ -114,20 +111,21 @@ def main():
             ]
 
             for product in valid_requests:
-                content = str(product.decode())  # convert product dict to string
+                dump = str(product.to_json())  # convert product dict to string
                 db.write_dump(
                     conn,
-                    (product.id, content, lastmod, hash(content)),
+                    (product.id, dump, lastmod, hash(dump)),
                 )
                 pbar.update(1)
-
+    
     conn.close()
-
+    return set(ids), set(invalid_requests)
 
 if __name__ == "__main__":
-    try:
-        main()
-    except (requests.exceptions.ConnectionError, requests.exceptions.SSLError) as e:
-        print(e)
-        time.sleep(30)
-        main()
+    ids, invalid_requests = {}, {' '}
+    while ids != invalid_requests:
+        try:
+            ids, invalid_requests = main()
+        except requests.exceptions.SSLError as e:
+            # logging.error(f"SSLError occurred: {e}")
+            time.sleep(30)
