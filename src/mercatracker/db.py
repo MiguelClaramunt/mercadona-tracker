@@ -45,14 +45,16 @@ def get_lastmod(conn: sqlite3.Connection) -> str:
 
 
 def get_processed_ids(conn: sqlite3.Connection, lastmod: str):
+    create_dumps_table(conn)
     conn.row_factory = lambda cursor, row: row[0]
     return conn.execute("""SELECT id FROM dumps WHERE ymd=?""", (lastmod,)).fetchall()
 
 
 def get_scraped_ids(conn, ymd):
+    create_dumps_table(conn)
     result = conn.execute("SELECT ids FROM ids_scraped WHERE ymd = ?", (ymd,)).fetchone()
     if result:
-        return json.loads(result[0])  # Extract the string from the tuple
+        return json.loads(result)  # Extract the string from the tuple
     return []
 
 
