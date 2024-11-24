@@ -1,6 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Self
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import requests
 from yarl import URL
@@ -15,7 +13,6 @@ class ProductSchema:
     id: str
     params: dict
     url: str = field(init=False)
-    headers = {"Content-Type": "application/json"}
 
     def __post_init__(self):
         # self.url = self.build_url()
@@ -27,16 +24,6 @@ class ProductSchema:
                 query=self.params,
             )
         )
-
-    @classmethod
-    def build_url(cls) -> str:
-        url = f"{config['URL_API']}/{cls.id}/"
-        url_parts = list(urlparse(url))
-        query = dict(parse_qsl(url_parts[4]))
-        query.update(cls.params)
-        url_parts[4] = urlencode(query)
-
-        return urlunparse(url_parts)
 
     def request(self) -> requests.Response:
         try:
@@ -52,102 +39,7 @@ class ProductSchema:
 
         return self.response
 
-    def to_json(self) -> Self:
-        # self.decoded = json.loads(
-        #     base64.b64decode(self.response.json()["data"]["httpResponseBody"]).decode()
-        # )
+    def to_json(self) -> dict:
+        self.decoded = self.response.json()
         self.decoded = self.response.json()
         return self.decoded
-
-    # def post(self) -> Self:
-    #     data = {"url": self.url, "httpResponseBody": True}
-
-    #     self.response = requests.post(
-    #         config.proxyscrape_api_url, headers=self.headers, json=data
-    #     )
-    #     return self.response
-
-    # @Semaphore(2)
-    # async def async_post(
-    #     self,
-    # ) -> requests.Response:
-    #     data = {"url": self.url, "httpResponseBody": True}
-    #     response = await requests.post(
-    #         config.proxyscrape_api_url, headers=self.headers, json=data
-    #     )
-    #     return response
-
-    # @Semaphore(2)
-    # async def run_post(self) -> requests.Response:
-    #     try:
-    #         # Using await to handle the response asynchronously
-    #         response = await self.async_post()
-
-    #         return response
-    #     except Exception as e:
-    #         print(f"Error sending request: {e}")
-
-    # async def async_post(self, session: aiohttp.ClientSession):
-    #     data = {"url": self.url, "httpResponseBody": True}
-    #     async with session.post(
-    #         config.proxyscrape_api_url, headers=self.headers, json=data
-    #     ) as response:
-    #         self.response = response.text()
-
-    # def async_decode(self):
-    #     self.decoded = json.loads(
-    #         base64.b64decode(
-    #             (json.loads(self.response))["data"]["httpResponseBody"]
-    #         ).decode()
-    #     )
-    #     return self.decoded
-
-
-# @dataclass
-# class ProductRequest(requests.Response):
-#     # @retry(requests.exceptions.Timeout, tries=-1, delay=30, jitter=(0, 30))
-#     def request(self, url) -> Self:
-#         session = requests.Session()
-#         retries = Retry(
-#             total=None, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504]
-#         )
-
-#         session.mount("http://", HTTPAdapter(max_retries=retries))
-
-#         response = session.get(
-#             url,
-#             headers=config.headers,
-#             verify=config.verify,
-#         )
-
-#         self.status = response.status_code
-#         self.response = response.json()
-
-#         return self
-
-#     def process(self) -> dict:
-#         return processing.flatten_dict(self.response)
-
-
-# @dataclass
-# class ProxyScrapeProductRequest(requests.Response):
-#     headers = {"Content-Type": "application/json", "X-Api-Key": config.x_api_key}
-
-#     def post(
-#         self,
-#         url,
-#     ) -> Self:
-#         data = {"url": url, "httpResponseBody": True}
-
-#         self.response = requests.post(
-#             config.proxyscrape_api_url, headers=self.headers, json=data
-#         )
-#         return self.response
-
-#     def decode(
-#         self,
-#     ) -> Self:
-#         self.decoded = json.loads(
-#             base64.b64decode(self.response.json()["data"]["httpResponseBody"]).decode()
-#         )
-#         return self.decoded
