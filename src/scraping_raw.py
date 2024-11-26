@@ -37,9 +37,7 @@ def process_batch(ids_batch):
     return results
 
 
-def main():
-    conn = sqlite3.connect("/home/miguel/git/mercadona-tracker/src/mercadona.db")
-
+def main(conn: sqlite3.Connection):
     soup = Soup(url=config.url_sitemap).request()
     lastmod = soup.get_lastmod()
 
@@ -123,11 +121,25 @@ def main():
     conn.close()
     return set(ids), set(invalid_requests)
 
+
 if __name__ == "__main__":
-    ids, invalid_requests = {}, {' '}
+    conn = sqlite3.connect("/home/miguel/git/mercadona-tracker/src/mercadona.db")
+
+    ids, invalid_requests = {}, {" "}
     while ids != invalid_requests:
         try:
-            ids, invalid_requests = main()
-        except requests.exceptions.SSLError as e:
+            ids, invalid_requests = main(conn=conn)
+            if ids == invalid_requests:
+                conn.close()
+                break
+        except requests.exceptions.SSLError:
             # logging.error(f"SSLError occurred: {e}")
-            time.sleep(30)
+            time.sleep(10)
+        except KeyboardInterrupt:
+            conn.close()
+            try:
+                sys.exit(130)
+            except SystemExit:
+                os._exit(130)
+
+    conn.close()
