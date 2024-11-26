@@ -39,7 +39,6 @@ class ProductSchema:
 
         return self.response
 
-    def to_json(self) -> dict:
-        self.decoded = self.response.json()
-        self.decoded = self.response.json()
-        return self.decoded
+    def to_dump(self) -> str:
+        self.dump = str(self.response.json())
+        return self.dump

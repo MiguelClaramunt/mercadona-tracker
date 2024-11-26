@@ -28,7 +28,7 @@ class Soup:
 
         return [found.get_text("", True) for found in found]
 
-    def get_ids(self) -> List[str]:
+    def scrape_ids(self) -> List[str]:
         strings = self.get_tags(tag="loc", skiprows=1)
         ids = self.search(strings, pattern=r"(\d+(?:\.\d+)?)")
 
@@ -49,7 +49,7 @@ class Soup:
     #     if search:
     #         return search.group(1)
 
-    def get_lastmod(self) -> str:
+    def scrape_lastmod(self) -> str:
         date = self.get_tag("lastmod")
         self.lastmod = temporal.iso_date2custom_format(date)
 

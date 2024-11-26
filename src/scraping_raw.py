@@ -1,6 +1,3 @@
-import concurrent.futures
-import json
-
 # import libsql_experimental as libsql
 import os
 import sqlite3
@@ -9,12 +6,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
-from tqdm import tqdm
-
 from mercatracker import db, logging
 from mercatracker.api import ProductSchema
 from mercatracker.config import Config
 from mercatracker.scraper import Soup
+from tqdm import tqdm
 
 BATCH_SIZE = 40
 
@@ -39,66 +35,23 @@ def process_batch(ids_batch):
 
 def main(conn: sqlite3.Connection):
     soup = Soup(url=config.url_sitemap).request()
-    lastmod = soup.get_lastmod()
+    lastmod = soup.scrape_lastmod()
 
-    # scrape and write ids in db if they are not present
-    if lastmod != str(db.get_lastmod(conn)):
-        all_ids = soup.get_ids()
-        db.write_scraped_ids(
-            conn,
-            (
-                lastmod,
-                json.dumps(all_ids),
-            ),
-        )
-    else: # retrieve scraped ids from db
-        all_ids = db.get_scraped_ids(conn, lastmod)
+    lastmod_db, ymd_id = db.get_lastmod(conn)
+    if lastmod != str(lastmod_db):
+        db.write_lastmod(conn, lastmod)
+        logging.soup(lastmod)
 
-    processed_ids = db.get_processed_ids(conn, lastmod)
+    all_ids = soup.scrape_ids()
+    processed_ids = db.get_processed_ids(conn, ymd_id)
+
     # set intersection (all ids minus the processed ones present in db)
     ids = list(set(all_ids) - set(processed_ids))
-    if not processed_ids:
-        logging.soup(lastmod)
     invalid_requests = []
-
-    ### SINGLE THREAD PROCESSING ###
-
-    # with tqdm(total=len(ids)) as pbar:
-    #     try:
-    #         for id in ids:
-    #             try:
-    #                 product = api.ProductSchema(id=id, params=config.params_api)
-    #                 response = product.request()
-
-    #                 if response.status_code == 200:
-    #                     db.write_dump(
-    #                         conn,
-    #                         (
-    #                             id,
-    #                             str(product.decode()),
-    #                             lastmod,
-    #                         ),
-    #                     )
-    #                     pbar.update(1)
-
-    #                 elif response.status_code == 410:
-    #                     continue
-
-    #             except requests.exceptions.SSLError:
-    #                 continue
-
-    #     except KeyboardInterrupt:
-    #         conn.close()
-    #         try:
-    #             sys.exit(130)
-    #         except SystemExit:
-    #             os._exit(130)
-
-    ### MULTI THREAD PROCESSING ###
 
     with tqdm(total=len(ids)) as pbar:
         for i in range(0, len(ids), BATCH_SIZE):
-            batch_ids = ids[i:i + BATCH_SIZE]
+            batch_ids = ids[i : i + BATCH_SIZE]
             results = process_batch(batch_ids)
 
             invalid_requests += [
@@ -111,14 +64,16 @@ def main(conn: sqlite3.Connection):
             ]
 
             for product in valid_requests:
-                dump = str(product.to_json())  # convert product dict to string
                 db.write_dump(
                     conn,
-                    (product.id, dump, lastmod, hash(dump)),
+                    {
+                        "id": product.id,
+                        "ymd_id": ymd_id,
+                        "content": product.to_dump(),
+                    },
                 )
                 pbar.update(1)
-    
-    conn.close()
+
     return set(ids), set(invalid_requests)
 
 
