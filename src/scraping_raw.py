@@ -2,13 +2,17 @@ import concurrent.futures
 import json
 
 # import libsql_experimental as libsql
+import os
 import sqlite3
+import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from tqdm import tqdm
 
-from mercatracker import api, db, logging
+from mercatracker import db, logging
+from mercatracker.api import ProductSchema
 from mercatracker.config import Config
 from mercatracker.scraper import Soup
 
@@ -18,20 +22,18 @@ config = Config().load()
 
 
 def fetch_product_data(id, params):
-    product = api.ProductSchema(id=id, params=params)
+    product = ProductSchema(id=id, params=params)
     product.request()
     return product  # return ProductSchema instance
 
 
 def process_batch(ids_batch):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [
             executor.submit(fetch_product_data, id, config.params_api)
             for id in ids_batch
         ]
-        results = [
-            future.result() for future in concurrent.futures.as_completed(futures)
-        ]
+        results = [future.result() for future in as_completed(futures)]
     return results
 
 
