@@ -1,5 +1,19 @@
 import json
 import sqlite3
+from typing import Any
+
+
+def dict_to_query_components(input_dict: dict[str, Any]) -> tuple[str, str, Any]:
+    columns = ", ".join(input_dict.keys())
+    placeholders = ",".join("?" * len(input_dict))
+    values = tuple(input_dict.values())
+    return (columns, placeholders, values)
+
+
+def dict_to_query(input_dict: dict[str, Any]) -> tuple[str, str]:
+    columns, placeholders, values = dict_to_query_components(input_dict)
+    query = f"INSERT INTO dumps({columns}) VALUES({placeholders})"
+    return (query, values)
 
 
 def create_dumps_table(conn: sqlite3.Connection):
