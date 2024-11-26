@@ -44,10 +44,28 @@ def create_ids_scraped_table(conn: sqlite3.Connection):
     conn.commit()
 
 
-def write_dump(conn: sqlite3.Connection, parameters: tuple):
+def create_dates_scraped_table(conn: sqlite3.Connection):
+    conn.execute("""
+                 CREATE TABLE IF NOT EXISTS dates_scraped (
+                    ymd INTEGER,
+                    ymd_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    UNIQUE (ymd, ymd_id)
+                 );""")
+    conn.commit()
+
+
+def write_dump(conn: sqlite3.Connection, parameters: dict):
     create_dumps_table(conn)
     cur = conn.cursor()
-    cur.execute("""INSERT INTO dumps(id, content, ymd, hash) VALUES(?,?,?,?)""", parameters)
+    query, values = dict_to_query(parameters)
+    cur.execute(query, values)
+    conn.commit()
+
+
+def write_lastmod(conn: sqlite3.Connection, lastmod: str):
+    create_dates_scraped_table(conn)
+    cur = conn.cursor()
+    cur.execute("""INSERT INTO dates_scraped(ymd) VALUES(?)""", (int(lastmod),))
     conn.commit()
 
 
@@ -58,16 +76,17 @@ def write_scraped_ids(conn: sqlite3.Connection, parameters: tuple):
     conn.commit()
 
 
-def get_lastmod(conn: sqlite3.Connection) -> str:
-    create_ids_scraped_table(conn)
-    conn.row_factory = lambda cursor, row: row[0]
-    return conn.execute("""SELECT max(ymd) FROM ids_scraped""").fetchone()
+def get_lastmod(conn: sqlite3.Connection) -> tuple[int, int]:
+    create_dates_scraped_table(conn)
+    return conn.execute("""SELECT max(ymd), ymd_id FROM dates_scraped""").fetchone()
 
 
-def get_processed_ids(conn: sqlite3.Connection, lastmod: str):
+def get_processed_ids(conn: sqlite3.Connection, ymd_id: str | int) -> list[str]:
     create_dumps_table(conn)
     conn.row_factory = lambda cursor, row: row[0]
-    return conn.execute("""SELECT id FROM dumps WHERE ymd=?""", (lastmod,)).fetchall()
+    return conn.execute(
+        """SELECT id FROM dumps WHERE ymd_id=?""", (int(ymd_id),)
+    ).fetchall()
 
 
 def get_scraped_ids(conn, ymd):
