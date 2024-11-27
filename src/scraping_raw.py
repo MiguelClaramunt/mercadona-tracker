@@ -6,11 +6,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
+from tqdm import tqdm
+
 from mercatracker import db, logging
 from mercatracker.api import ProductSchema
 from mercatracker.config import Config
 from mercatracker.scraper import Soup
-from tqdm import tqdm
 
 BATCH_SIZE = 40
 
@@ -38,7 +39,7 @@ def main(conn: sqlite3.Connection):
     lastmod = soup.scrape_lastmod()
 
     lastmod_db, ymd_id = db.get_lastmod(conn)
-    if lastmod != str(lastmod_db):
+    if lastmod != lastmod_db:
         db.write_lastmod(conn, lastmod)
         logging.soup(lastmod)
 
@@ -85,7 +86,6 @@ if __name__ == "__main__":
         try:
             ids, invalid_requests = main(conn=conn)
             if ids == invalid_requests:
-                conn.close()
                 break
         except requests.exceptions.SSLError:
             # logging.error(f"SSLError occurred: {e}")

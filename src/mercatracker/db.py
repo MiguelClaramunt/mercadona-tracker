@@ -85,10 +85,10 @@ def write_dump(conn: sqlite3.Connection, parameters: dict):
     conn.commit()
 
 
-def write_lastmod(conn: sqlite3.Connection, lastmod: str):
+def write_lastmod(conn: sqlite3.Connection, lastmod: int):
     create_dates_scraped_table(conn)
     cur = conn.cursor()
-    cur.execute("""INSERT INTO dates_scraped(ymd) VALUES(?)""", (int(lastmod),))
+    cur.execute("""INSERT INTO dates_scraped(ymd) VALUES(?)""", (lastmod,))
     conn.commit()
 
 

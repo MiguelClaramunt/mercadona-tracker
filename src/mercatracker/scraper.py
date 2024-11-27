@@ -49,8 +49,8 @@ class Soup:
     #     if search:
     #         return search.group(1)
 
-    def scrape_lastmod(self) -> str:
+    def scrape_lastmod(self) -> int:
         date = self.get_tag("lastmod")
         self.lastmod = temporal.iso_date2custom_format(date)
 
-        return self.lastmod
+        return int(self.lastmod)
