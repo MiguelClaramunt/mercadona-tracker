@@ -26,25 +26,34 @@ def create_dumps_table(conn: sqlite3.Connection):
                     `ymd_id` INTEGER REFERENCES `dates_scraped`(`ymd_id`),
                     PRIMARY KEY (id, ymd_id))
                  ;""")
+    
+    # Check if the trigger already exists
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='trigger' AND name='remove_consecutive_duplicates';
+    """)
+    trigger_exists = cursor.fetchone()
 
-    # Create a trigger to remove consecutive duplicates
-    # Duplicates are considered consecutive if they have same {id, content} than the previous ymd_id
-    conn.execute("""
-                 CREATE TRIGGER remove_consecutive_duplicates
-                 AFTER INSERT ON dumps
-                 BEGIN
-                    DELETE FROM dumps
-                    WHERE rowid = NEW.rowid AND EXISTS (
-                        SELECT 1 FROM dumps
-                        WHERE id = NEW.id
-                        AND ymd_id = (
-                            SELECT MAX(ymd_id) FROM dumps
-                            WHERE id = NEW.id AND ymd_id < NEW.ymd_id
-                        )
-                        AND content = NEW.content
-                    );
-                 END;
-                 """)
+    if not trigger_exists:
+        # Create a trigger to remove consecutive duplicates
+        # Duplicates are considered consecutive if they have same {id, content} than the previous ymd_id
+        conn.execute("""
+                    CREATE TRIGGER remove_consecutive_duplicates
+                    AFTER INSERT ON dumps
+                    BEGIN
+                        DELETE FROM dumps
+                        WHERE rowid = NEW.rowid AND EXISTS (
+                            SELECT 1 FROM dumps
+                            WHERE id = NEW.id
+                            AND ymd_id = (
+                                SELECT MAX(ymd_id) FROM dumps
+                                WHERE id = NEW.id AND ymd_id < NEW.ymd_id
+                            )
+                            AND content = NEW.content
+                        );
+                    END;
+                    """)
     conn.commit()
 
 
