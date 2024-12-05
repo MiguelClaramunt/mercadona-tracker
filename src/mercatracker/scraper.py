@@ -9,6 +9,9 @@ from bs4 import BeautifulSoup
 
 from mercatracker import temporal
 
+class TemporaryRestrictionException(Exception):
+    pass
+
 
 @dataclass
 class Soup:
@@ -18,7 +21,10 @@ class Soup:
     def request(self) -> Self:
         xml = requests.get(self.url).text
         self.soup = BeautifulSoup(xml, features="xml")
+        if '800 500 220' in self.soup.get_text():
+            raise TemporaryRestrictionException("Service misuse detected.")
         return self
+        
 
     def get_tag(self, tag: str) -> str:
         return self.soup.find(tag).get_text("", True)

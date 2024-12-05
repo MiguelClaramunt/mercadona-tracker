@@ -88,13 +88,14 @@ if __name__ == "__main__":
             if ids == invalid_requests:
                 break
         except requests.exceptions.SSLError:
-            # logging.error(f"SSLError occurred: {e}")
-            time.sleep(10)
+            print("Encountered SSLError. Retrying in 5 seconds...")
+            time.sleep(5)
+        except TemporaryRestrictionException as e:
+            print(f"An error occurred: /{e}. Retrying in 2 minutes...")
+            time.sleep(60 * 2)
         except KeyboardInterrupt:
+            print("Interrupted by user. Closing connection to database.")
             conn.close()
-            try:
-                sys.exit(130)
-            except SystemExit:
-                os._exit(130)
+            sys.exit(130)
 
     conn.close()
