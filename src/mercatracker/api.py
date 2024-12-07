@@ -40,5 +40,4 @@ class ProductSchema:
         return self.response
 
     def to_dump(self) -> str:
-        self.dump = str(self.response.json())
-        return self.dump
+        return str(self.response.json())
