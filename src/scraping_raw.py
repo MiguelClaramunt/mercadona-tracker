@@ -7,7 +7,7 @@ import requests
 from tqdm import tqdm
 
 from mercatracker import db, logging
-from mercatracker.api import ProductSchema
+from mercatracker.api import MercadonaProductSchema
 from mercatracker.config import Config
 from mercatracker.scraper import Soup, TemporaryRestrictionException
 from mercatracker.sethandler import SetHandler
@@ -17,7 +17,7 @@ config = Config().load()
 
 
 def fetch_product_data(id, params):
-    product = ProductSchema(id=id, params=params)
+    product = MercadonaProductSchema(id=id, params=params)
     product.request()
     return product
 
