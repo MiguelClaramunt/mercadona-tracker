@@ -217,3 +217,6 @@ $RECYCLE.BIN/
 .vscode/settings.json
 mercadona.es.crt
 mercadona.db:Zone.Identifier
+*.sql
+*.pkl
+*.ipynb
