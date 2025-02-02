@@ -6,11 +6,13 @@ from dataclasses import dataclass, field
 from functools import partial
 from operator import is_not
 from typing import List, Optional, Self
+
 import requests
 from bs4 import BeautifulSoup
-from yarl import URL
 from certifi import where as certifi_where
-        
+from yarl import URL
+
+
 from mercatracker.config import Config
 
 config = Config().load()
@@ -122,7 +124,7 @@ class MercadonaProductSchema(AbstractRequestHandler):
                     query=self.params,
                 )
             )
-    
+
     def __call__(self):
         soup = self.request_soup()
         self.lastmod = soup.scrape_lastmod()
@@ -132,3 +134,36 @@ class MercadonaProductSchema(AbstractRequestHandler):
         if "800 500 220" in self.soup.get_text():
             raise TemporaryRestrictionException("Service misuse detected.")
         return self
+
+
+@dataclass(kw_only=True)
+class ConsumProductSchema(AbstractRequestHandler):
+    id: str
+    params: dict[str, str] = field(default_factory=lambda: {"shippingZoneId": "0D"})
+    host: str = "tienda.consum.es"
+
+    def __post_init__(self):
+        if (self.id is None) and (self.request_sitemap is None):
+            raise ValueError("Either 'id' or 'request_sitemap' must be provided.")
+        if self.request_sitemap:
+            self.url = str(
+                URL.build(
+                    scheme=self.scheme,
+                    host=self.host,
+                    path="/sitemap_product_es.xml",
+                )
+            )
+            # get lastmod from current date
+            self.lastmod = iso_date2custom_format(date.today())
+        else:
+            self.url = str(
+                URL.build(
+                    scheme=self.scheme,
+                    host=self.host,
+                    path=f"/api/rest/V1.0/catalog/product/code/{self.id}",
+                    query=self.params,
+                )
+            )
+
+    def __call__(self):
+        self.lastmod = int(datetime.date.today().strftime("%Y%m%d"))
