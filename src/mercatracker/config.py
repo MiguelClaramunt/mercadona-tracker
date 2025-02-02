@@ -17,7 +17,7 @@ class Config:
     os: bool | None = None
     dict_: dict = field(init=False)
 
-    def __getitem__(self, item: Union[str, Iterable[str,]]):
+    def __getitem__(self, item: Union[str, Iterable[str,]]) -> Any:
         if isinstance(item, str):
             return self.dict_[item]
         elif isinstance(item, Iterable) and all(isinstance(i, str) for i in item):
@@ -25,7 +25,7 @@ class Config:
         else:
             raise TypeError("Key must be a string or a list of strings.")
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr) -> Any:
         return self.dict_[attr.upper()]
 
     def __setitem__(self, key, value):
