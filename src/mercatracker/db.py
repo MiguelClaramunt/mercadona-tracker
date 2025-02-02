@@ -88,10 +88,6 @@ def get_processed_ids(conn: sqlite3.Connection, supermarket_id: int, ymd: int) -
         (ymd, supermarket_id)
     ).fetchall()
 
-def get_scraped_ids(conn, ymd):
-    # Omitted for brevity; not directly used for set_cache
-    pass
-
 def select_from_table(conn: sqlite3.Connection, column_name: str, table_name: str):
     conn.row_factory = lambda cursor, row: row[0]
     return conn.execute("""SELECT {} FROM {}""".format(column_name, table_name))
