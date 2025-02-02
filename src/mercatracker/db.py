@@ -69,8 +69,11 @@ def init_supermarkets_table(conn: sqlite3.Connection):
 def write_supermarket_params(conn: sqlite3.Connection, parameters: dict):
     init_supermarkets_table(conn)
     cur = conn.cursor()
-    query, values = dict_to_query(parameters)
-    cur.execute(query, values)
+    query = """
+        INSERT OR IGNORE INTO supermarkets (supermarket, params) 
+        VALUES (:supermarket, :params)
+    """
+    cur.execute(query, parameters)
     conn.commit()
 
 def get_lastmod(conn: sqlite3.Connection, supermarket_id: int) -> int:
