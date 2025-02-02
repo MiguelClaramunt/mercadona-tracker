@@ -36,12 +36,12 @@ class Soup:
 
     def scrape_ids(self) -> List[str]:
         strings = self.get_tags(tag="loc", skiprows=1)
-        ids = self.search(strings, pattern=r"(\d+(?:\.\d+)?)")
+        ids = self.search_pattern(strings, pattern=r"(\d+(?:\.\d+)?)")
 
         return [id for id in ids if id]
 
     @classmethod
-    def search(cls, strings: list[str], pattern: str = r"(\d+(?:\.\d+)?)") -> list[str]:
+    def search_pattern(cls, strings: list[str], pattern: str = r"(\d+(?:\.\d+)?)") -> list[str]:
         found_items = [
             found.group(1)
             for string in strings
