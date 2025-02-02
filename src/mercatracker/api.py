@@ -138,7 +138,7 @@ class MercadonaProductSchema(AbstractRequestHandler):
 
 @dataclass(kw_only=True)
 class ConsumProductSchema(AbstractRequestHandler):
-    id: str
+    id: Optional[str] = None
     params: dict[str, str] = field(default_factory=lambda: {"shippingZoneId": "0D"})
     host: str = "tienda.consum.es"
 
@@ -154,7 +154,7 @@ class ConsumProductSchema(AbstractRequestHandler):
                 )
             )
             # get lastmod from current date
-            self.lastmod = iso_date2custom_format(date.today())
+            self.__call__()
         else:
             self.url = str(
                 URL.build(
