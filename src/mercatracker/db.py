@@ -15,11 +15,15 @@ def dict_to_query(input_dict: dict[str, Any]) -> tuple[str, Any]:
 
 def init_dumps_table(conn: sqlite3.Connection):
     conn.execute("""
-                 CREATE TABLE IF NOT EXISTS "dumps" (
-                    "id" TEXT, 
-                    "ymd" INTEGER,
-                    "content" TEXT,
-                    PRIMARY KEY (id, ymd));""")
+        CREATE TABLE IF NOT EXISTS dumps (
+            id TEXT, 
+            ymd INTEGER,
+            content TEXT,
+            supermarket_id INTEGER,
+            PRIMARY KEY (id, ymd, supermarket_id)
+            FOREIGN KEY (supermarket_id) REFERENCES supermarkets(id)
+        );
+    """)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT name FROM sqlite_master
