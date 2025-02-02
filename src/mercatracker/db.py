@@ -73,14 +73,17 @@ def write_supermarket_params(conn: sqlite3.Connection, parameters: dict):
     cur.execute(query, values)
     conn.commit()
 
-def get_lastmod(conn: sqlite3.Connection) -> int:
+def get_lastmod(conn: sqlite3.Connection, supermarket_id: int) -> int:
     conn.row_factory = lambda cursor, row: row[0]
-    return conn.execute("""SELECT max(ymd) FROM dumps""").fetchone()
+    return conn.execute("""SELECT max(ymd) FROM dumps WHERE supermarket_id = ?""", (supermarket_id,)).fetchone()
 
-def get_processed_ids(conn: sqlite3.Connection, ymd: str | int) -> list[str]:
+def get_processed_ids(conn: sqlite3.Connection, supermarket_id: int, ymd: int) -> list[str]:
     init_dumps_table(conn)
     conn.row_factory = lambda cursor, row: row[0]
-    return conn.execute("""SELECT id FROM dumps WHERE ymd=?""", (int(ymd),)).fetchall()
+    return conn.execute(
+        "SELECT id FROM dumps WHERE ymd = ? AND supermarket_id = ?",
+        (ymd, supermarket_id)
+    ).fetchall()
 
 def get_scraped_ids(conn, ymd):
     # Omitted for brevity; not directly used for set_cache
@@ -134,6 +137,7 @@ def load_set_cache(conn: sqlite3.Connection, ymd: int, supermarket_id: int) -> d
     Returns a dictionary of {set_name: set_of_items} for the given ymd / supermarket_id.
     """
     init_set_table(conn)
+    conn.row_factory = None
     cur = conn.cursor()
     query = """
         SELECT set_name, data FROM set_cache
