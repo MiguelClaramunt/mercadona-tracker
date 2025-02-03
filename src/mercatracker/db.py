@@ -2,16 +2,19 @@ import json
 import sqlite3
 from typing import Any
 
+
 def dict_to_query_components(input_dict: dict[str, Any]) -> tuple[str, str, Any]:
     columns = ", ".join(input_dict.keys())
     placeholders = ",".join("?" * len(input_dict))
     values = tuple(input_dict.values())
     return (columns, placeholders, values)
 
+
 def dict_to_query(input_dict: dict[str, Any]) -> tuple[str, Any]:
     columns, placeholders, values = dict_to_query_components(input_dict)
     query = f"INSERT INTO dumps({columns}) VALUES({placeholders})"
     return (query, values)
+
 
 def init_dumps_table(conn: sqlite3.Connection):
     conn.execute("""
@@ -49,12 +52,14 @@ def init_dumps_table(conn: sqlite3.Connection):
                     """)
     conn.commit()
 
+
 def write_dump(conn: sqlite3.Connection, parameters: dict):
     init_dumps_table(conn)
     cur = conn.cursor()
     query, values = dict_to_query(parameters)
     cur.execute(query, values)
     conn.commit()
+
 
 def init_supermarkets_table(conn: sqlite3.Connection):
     conn.execute("""
@@ -66,6 +71,7 @@ def init_supermarkets_table(conn: sqlite3.Connection):
                  """)
     conn.commit()
 
+
 def write_supermarket_params(conn: sqlite3.Connection, parameters: dict):
     init_supermarkets_table(conn)
     cur = conn.cursor()
@@ -76,21 +82,29 @@ def write_supermarket_params(conn: sqlite3.Connection, parameters: dict):
     cur.execute(query, parameters)
     conn.commit()
 
+
 def get_lastmod(conn: sqlite3.Connection, supermarket_id: int) -> int:
     conn.row_factory = lambda cursor, row: row[0]
-    return conn.execute("""SELECT max(ymd) FROM dumps WHERE supermarket_id = ?""", (supermarket_id,)).fetchone()
+    return conn.execute(
+        """SELECT max(ymd) FROM dumps WHERE supermarket_id = ?""", (supermarket_id,)
+    ).fetchone()
 
-def get_processed_ids(conn: sqlite3.Connection, supermarket_id: int, ymd: int) -> list[str]:
+
+def get_processed_ids(
+    conn: sqlite3.Connection, supermarket_id: int, ymd: int
+) -> list[str]:
     init_dumps_table(conn)
     conn.row_factory = lambda cursor, row: row[0]
     return conn.execute(
         "SELECT id FROM dumps WHERE ymd = ? AND supermarket_id = ?",
-        (ymd, supermarket_id)
+        (ymd, supermarket_id),
     ).fetchall()
+
 
 def select_from_table(conn: sqlite3.Connection, column_name: str, table_name: str):
     conn.row_factory = lambda cursor, row: row[0]
     return conn.execute("""SELECT {} FROM {}""".format(column_name, table_name))
+
 
 def query_database(conn, criteria) -> int:
     query = 'SELECT "id" FROM "supermarkets" WHERE '
@@ -105,9 +119,10 @@ def query_database(conn, criteria) -> int:
         return result[0]
     return result
 
+
 def init_set_table(conn: sqlite3.Connection):
     cur = conn.cursor()
-    cur.execute('''
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS set_cache (
             ymd INTEGER,
             supermarket_id INTEGER,
@@ -116,10 +131,34 @@ def init_set_table(conn: sqlite3.Connection):
             PRIMARY KEY (ymd, supermarket_id, set_name),
             FOREIGN KEY (supermarket_id) REFERENCES supermarkets(id)
         )
-    ''')
+    """)
+    conn.commit()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='trigger' AND name='delete_older_set_cache_entries'"
+    )
+    trigger_exists = cursor.fetchone()
+    if not trigger_exists:
+        conn.execute("""
+            CREATE TRIGGER delete_older_set_cache_entries
+            AFTER INSERT ON set_cache
+            BEGIN
+                DELETE FROM set_cache
+                WHERE supermarket_id = NEW.supermarket_id
+                  AND set_name = NEW.set_name
+                  AND ymd < NEW.ymd;
+            END;
+        """)
     conn.commit()
 
-def write_set_cache(conn: sqlite3.Connection, ymd: int, supermarket_id: int, set_name: str, set_data: set):
+
+def write_set_cache(
+    conn: sqlite3.Connection,
+    ymd: int,
+    supermarket_id: int,
+    set_name: str,
+    set_data: set,
+):
     init_set_table(conn)
     cur = conn.cursor()
     data_json = json.dumps(list(set_data))
@@ -130,7 +169,10 @@ def write_set_cache(conn: sqlite3.Connection, ymd: int, supermarket_id: int, set
     cur.execute(query, (ymd, supermarket_id, set_name, data_json))
     conn.commit()
 
-def load_set_cache(conn: sqlite3.Connection, ymd: int, supermarket_id: int) -> dict[str, set]:
+
+def load_set_cache(
+    conn: sqlite3.Connection, ymd: int, supermarket_id: int
+) -> dict[str, set]:
     """
     Returns a dictionary of {set_name: set_of_items} for the given ymd / supermarket_id.
     """
