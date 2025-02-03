@@ -99,7 +99,6 @@ if __name__ == "__main__":
                 "supermarket": "mercadona",
                 "params": '{"lang":"es","wh":"vlc1"}',
             },
-            "name": "Mercadona",
         },
         {
             "request_handler": ConsumProductSchema,
@@ -107,7 +106,6 @@ if __name__ == "__main__":
                 "supermarket": "consum",
                 "params": '{"shippingZoneId":"0D"}',
             },
-            "name": "Consum",
         },
     ]
 
@@ -120,7 +118,7 @@ if __name__ == "__main__":
                 remaining_ids = sh.scraped_ids - sh.written_ids - sh.checked_ids
                 if not remaining_ids:
                     sh.save_cache()
-                    print(f"All {target['name']} IDs processed.")
+                    print(f"All {target['params']['supermarket']} IDs processed.")
                     break
             except requests.exceptions.SSLError:
                 secs = 120
