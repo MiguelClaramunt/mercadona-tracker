@@ -95,13 +95,12 @@ def select_from_table(conn: sqlite3.Connection, column_name: str, table_name: st
 def query_database(conn, criteria) -> int:
     query = 'SELECT "id" FROM "supermarkets" WHERE '
     conditions = []
-    for key, value in criteria.items():
+    for key in criteria:
         conditions.append(f'"{key}" = ?')
     query += " AND ".join(conditions)
-    cursor = conn.execute(query, tuple(criteria.values()))
-    result = cursor.fetchone()
-    if result is None:
-        return None
+    cursor = conn.execute(query, tuple(criteria[k] for k in criteria))
+    if (result := cursor.fetchone()) is None:
+        raise ValueError("No matching supermarket found")
     if isinstance(result, tuple):
         return result[0]
     return result
