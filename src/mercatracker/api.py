@@ -91,6 +91,10 @@ class AbstractRequestHandler(ABC):
 
         return int(self.lastmod)
 
+    @classmethod
+    def get_name(cls):
+        return re.findall(r"[A-Z][a-z]*", cls.__name__)[0]
+
 
 @dataclass(kw_only=True)
 class MercadonaProductSchema(AbstractRequestHandler):
@@ -130,6 +134,10 @@ class MercadonaProductSchema(AbstractRequestHandler):
             raise TemporaryRestrictionException("Service misuse detected.")
         return self
 
+    @classmethod
+    def get_name(cls):
+        return super().get_name()
+
 
 @dataclass(kw_only=True)
 class ConsumProductSchema(AbstractRequestHandler):
@@ -162,3 +170,7 @@ class ConsumProductSchema(AbstractRequestHandler):
 
     def __call__(self):
         self.lastmod = int(datetime.date.today().strftime("%Y%m%d"))
+
+    @classmethod
+    def get_name(cls):
+        return super().get_name()
