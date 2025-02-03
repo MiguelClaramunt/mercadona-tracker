@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 from mercatracker import db
 
 @dataclass
 class SetHandler:
-    conn: Optional[any] = None
+    conn: Optional[Any] = None
     ymd: int = 0
     supermarket_id: int = 0
     sets: dict = field(default_factory=dict)
