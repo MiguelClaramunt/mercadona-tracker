@@ -13,11 +13,6 @@ from certifi import where as certifi_where
 from yarl import URL
 
 
-from mercatracker.config import Config
-
-config = Config().load()
-
-
 class TemporaryRestrictionException(Exception):
     pass
 
