@@ -220,3 +220,4 @@ mercadona.db:Zone.Identifier
 *.sql
 *.pkl
 *.ipynb
+*.db*
