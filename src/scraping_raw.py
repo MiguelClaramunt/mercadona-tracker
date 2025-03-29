@@ -36,7 +36,7 @@ def process_batch(request_handler, ids_batch, params):
         return [f.result() for f in as_completed(futures)]
 
 
-def scrape_supermarket(conn, product_schema_class, sh, supermarket_params):
+def scrape_supermarket(conn, product_schema_class, sh, supermarket_params, position):
     supermarket = product_schema_class(request_sitemap=True)
     db_params = {
         "supermarket": product_schema_class.get_name(),
@@ -72,7 +72,11 @@ def scrape_supermarket(conn, product_schema_class, sh, supermarket_params):
         return sh
 
     with tqdm(
-        total=len(ids_to_process), desc=product_schema_class.get_name(), ncols=0
+        total=len(ids_to_process),
+        desc=product_schema_class.get_name(),
+        ncols=0,
+        position=position,
+        leave=True,
     ) as pbar:
         for i in range(0, len(ids_to_process), BATCH_SIZE):
             batch_ids = ids_to_process[i : i + BATCH_SIZE]
@@ -106,7 +110,7 @@ def scrape_supermarket(conn, product_schema_class, sh, supermarket_params):
 
 if __name__ == "__main__":
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mercadona.db")
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     sh = SetHandler(conn=conn)
     sh.init_set("s", "w", "c")  # scraped, written, checked
 
@@ -121,17 +125,22 @@ if __name__ == "__main__":
         },
     ]
 
-    for target in scrape_targets:
-        sh.reset_set("s", "w", "c")
-
+    def scrape_target(target, position):
+        # Each target gets its own SetHandler instance
+        local_sh = SetHandler(conn=conn)
+        local_sh.init_set("s", "w", "c")
         while True:
             try:
-                sh = scrape_supermarket(
-                    conn, target["request_handler"], sh, target["params"]
+                local_sh = scrape_supermarket(
+                    conn,
+                    target["request_handler"],
+                    local_sh,
+                    target["params"],
+                    position,
                 )
-                remaining_ids = sh.s - sh.w - sh.c
+                remaining_ids = local_sh.s - local_sh.w - local_sh.c
                 if not remaining_ids:
-                    sh.save_cache()
+                    local_sh.save_cache()
                     print(f"All {target['request_handler'].get_name()} IDs processed.")
                     break
             except requests.exceptions.SSLError:
@@ -143,7 +152,15 @@ if __name__ == "__main__":
                 print(f"{e} Retrying in {secs // 60} minutes...")
                 time.sleep(secs)
             except KeyboardInterrupt:
-                sh.save_cache()
+                local_sh.save_cache()
                 print("Interrupted by user. Closing DB.")
                 conn.close()
                 sys.exit(130)
+
+    with ThreadPoolExecutor(max_workers=len(scrape_targets)) as executor:
+        futures = [
+            executor.submit(scrape_target, target, pos)
+            for pos, target in enumerate(scrape_targets)
+        ]
+        for future in as_completed(futures):
+            future.result()
