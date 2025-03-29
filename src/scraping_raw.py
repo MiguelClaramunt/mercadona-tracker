@@ -109,9 +109,7 @@ def scrape_supermarket(conn, product_schema_class, sh, supermarket_params, posit
 
 
 if __name__ == "__main__":
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mercadona.db")
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    sh = SetHandler(conn=conn)
+    sh = SetHandler()
     sh.init_set("s", "w", "c")  # scraped, written, checked
 
     scrape_targets = [
@@ -126,13 +124,16 @@ if __name__ == "__main__":
     ]
 
     def scrape_target(target, position):
-        # Each target gets its own SetHandler instance
-        local_sh = SetHandler(conn=conn)
+        db_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "mercadona.db"
+        )
+        local_conn = sqlite3.connect(db_path, check_same_thread=False)
+        local_sh = SetHandler(conn=local_conn)
         local_sh.init_set("s", "w", "c")
         while True:
             try:
                 local_sh = scrape_supermarket(
-                    conn,
+                    local_conn,
                     target["request_handler"],
                     local_sh,
                     target["params"],
@@ -154,8 +155,9 @@ if __name__ == "__main__":
             except KeyboardInterrupt:
                 local_sh.save_cache()
                 print("Interrupted by user. Closing DB.")
-                conn.close()
+                local_conn.close()
                 sys.exit(130)
+        local_conn.close()
 
     with ThreadPoolExecutor(max_workers=len(scrape_targets)) as executor:
         futures = [
