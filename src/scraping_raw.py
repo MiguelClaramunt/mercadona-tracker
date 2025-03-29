@@ -1,3 +1,4 @@
+# import libsql_experimental as libsql
 import os
 import sqlite3
 import sys
@@ -50,8 +51,13 @@ def scrape_supermarket(conn, product_schema_class, sh, supermarket_params):
     sh.ymd = supermarket.lastmod
     sh.load_cache()
 
+    if not sh.s or not sh.c:
+        s = product_schema_class(request_sitemap=True).scrape_ids()
+        sh.reset_set("c", "w")
+        sh.update_set("s", s, reset=True)
+        sh.save_cache()
+
     if supermarket.lastmod != db.get_lastmod(conn, supermarket_id):
-        logging.soup(supermarket.lastmod)
         s = supermarket.scrape_ids()
         sh.reset_set("c", "w")
         sh.update_set("s", s, reset=True)
