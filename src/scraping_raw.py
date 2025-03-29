@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import sys
 import time
@@ -6,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from tqdm import tqdm
 
-from mercatracker import db, logging
+from mercatracker import db
 from mercatracker.api import (
     ConsumProductSchema,
     MercadonaProductSchema,
@@ -15,17 +16,18 @@ from mercatracker.api import (
 from mercatracker.config import Config
 from mercatracker.sethandler import SetHandler
 
-BATCH_SIZE = 10
+BATCH_SIZE = 8
 config = Config().load()
 
 
 def fetch_product_data(request_handler, id_, params):
     product = request_handler(id=id_, params=params)
-    return product.request()
+    product.request()
+    return product
 
 
 def process_batch(request_handler, ids_batch, params):
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         futures = [
             executor.submit(fetch_product_data, request_handler, id_, params)
             for id_ in ids_batch
@@ -33,16 +35,16 @@ def process_batch(request_handler, ids_batch, params):
         return [f.result() for f in as_completed(futures)]
 
 
-def scrape_supermarket(conn, request_handler_class, sh, supermarket_params):
-    supermarket = request_handler_class(request_sitemap=True)
+def scrape_supermarket(conn, product_schema_class, sh, supermarket_params):
+    supermarket = product_schema_class(request_sitemap=True)
     db_params = {
-        "supermarket": request_handler_class.get_name(),
+        "supermarket": product_schema_class.get_name(),
         "params": supermarket_params,
     }
-    supermarket_id = db.query_database(conn, db_params)
+    supermarket_id = db.fetch_supermarket_id(conn, db_params)
     if not supermarket_id:
         db.write_supermarket_params(conn, supermarket_params)
-        supermarket_id = db.query_database(conn, supermarket_params)
+        supermarket_id = db.fetch_supermarket_id(conn, supermarket_params)
 
     sh.supermarket_id = supermarket_id
     sh.ymd = supermarket.lastmod
@@ -63,12 +65,12 @@ def scrape_supermarket(conn, request_handler_class, sh, supermarket_params):
     if not ids_to_process:
         return sh
 
-    with tqdm(total=len(ids_to_process)) as pbar:
+    with tqdm(
+        total=len(ids_to_process), desc=product_schema_class.get_name(), ncols=0
+    ) as pbar:
         for i in range(0, len(ids_to_process), BATCH_SIZE):
             batch_ids = ids_to_process[i : i + BATCH_SIZE]
-            results = process_batch(
-                request_handler_class, batch_ids, supermarket_params
-            )
+            results = process_batch(product_schema_class, batch_ids, supermarket_params)
             valid_requests = [r for r in results if r.response.status_code == 200]
             written_ids_batch = []
             for product in valid_requests:
@@ -97,7 +99,8 @@ def scrape_supermarket(conn, request_handler_class, sh, supermarket_params):
 
 
 if __name__ == "__main__":
-    conn = sqlite3.connect("/home/miguel/git/mercadona-tracker/src/mercadona.db")
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mercadona.db")
+    conn = sqlite3.connect(db_path)
     sh = SetHandler(conn=conn)
     sh.init_set("s", "w", "c")  # scraped, written, checked
 

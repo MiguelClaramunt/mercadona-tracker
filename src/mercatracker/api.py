@@ -27,7 +27,7 @@ def iso_date2custom_format(
 
 
 @dataclass
-class AbstractRequestHandler(ABC):
+class AbstractProductSchema(ABC):
     url: str = field(init=False)
     headers: dict[str, str] = field(
         default_factory=lambda: {
@@ -97,7 +97,7 @@ class AbstractRequestHandler(ABC):
 
 
 @dataclass(kw_only=True)
-class MercadonaProductSchema(AbstractRequestHandler):
+class MercadonaProductSchema(AbstractProductSchema):
     id: Optional[str] = None
     params: dict[str, str] = field(default_factory=lambda: {"lang": "es", "wh": "vlc1"})
     host: str = "tienda.mercadona.es"
@@ -140,7 +140,7 @@ class MercadonaProductSchema(AbstractRequestHandler):
 
 
 @dataclass(kw_only=True)
-class ConsumProductSchema(AbstractRequestHandler):
+class ConsumProductSchema(AbstractProductSchema):
     id: Optional[str] = None
     params: dict[str, str] = field(default_factory=lambda: {"shippingZoneId": "0D"})
     host: str = "tienda.consum.es"
