@@ -5,7 +5,7 @@ from abc import ABC
 from dataclasses import dataclass, field
 from functools import partial
 from operator import is_not
-from typing import List, Optional, Self
+from typing import ClassVar, List, Optional, Self
 
 import requests
 from bs4 import BeautifulSoup
@@ -28,6 +28,7 @@ def iso_date2custom_format(
 
 @dataclass
 class AbstractProductSchema(ABC):
+    session: ClassVar[requests.Session] = requests.Session()
     url: str = field(init=False)
     headers: dict[str, str] = field(
         default_factory=lambda: {
@@ -40,7 +41,7 @@ class AbstractProductSchema(ABC):
 
     def request(self) -> requests.Response:
         try:
-            self.response = requests.get(
+            self.response = self.session.get(
                 self.url,
                 headers=self.headers,
                 verify=certifi_where(),
@@ -50,7 +51,7 @@ class AbstractProductSchema(ABC):
         return self.response
 
     def request_soup(self) -> Self:
-        xml = requests.get(self.url).text
+        xml = self.session.get(self.url).text
         self.soup = BeautifulSoup(xml, features="xml")
         return self
 

@@ -17,7 +17,7 @@ from mercatracker.api import (
 from mercatracker.config import Config
 from mercatracker.sethandler import SetHandler
 
-BATCH_SIZE = 8
+BATCH_SIZE = 16  # increased for higher concurrency
 config = Config().load()
 
 
@@ -28,7 +28,8 @@ def fetch_product_data(request_handler, id_, params):
 
 
 def process_batch(request_handler, ids_batch, params):
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    # use batch size for thread pool to maximize throughput
+    with ThreadPoolExecutor(max_workers=BATCH_SIZE) as executor:
         futures = [
             executor.submit(fetch_product_data, request_handler, id_, params)
             for id_ in ids_batch
@@ -83,28 +84,22 @@ def scrape_supermarket(conn, product_schema_class, sh, supermarket_params, posit
             results = process_batch(product_schema_class, batch_ids, supermarket_params)
             valid_requests = [r for r in results if r.response.status_code == 200]
             written_ids_batch = []
-            for product in valid_requests:
-                try:
-                    db.write_dump(
-                        conn,
-                        {
-                            "id": product.id,
-                            "ymd": supermarket.lastmod,
-                            "content": product.to_dump(),
-                            "supermarket_id": supermarket_id,
-                        },
-                    )
-                except sqlite3.IntegrityError:
-                    continue
-                written_ids_batch.append(product.id)
-                pbar.update()
-
-            sh.update_set(
-                {
-                    "w": written_ids_batch,
-                    "c": batch_ids,
-                }
-            )
+            if valid_requests:
+                # batch-insert successful dumps to minimize I/O
+                cur = conn.cursor()
+                params_list = [
+                    (prod.id, supermarket.lastmod, prod.to_dump(), supermarket_id)
+                    for prod in valid_requests
+                ]
+                cur.executemany(
+                    "INSERT OR IGNORE INTO dumps (id, ymd, content, supermarket_id) VALUES (?,?,?,?)",
+                    params_list,
+                )
+                conn.commit()
+                written_ids_batch = [prod.id for prod in valid_requests]
+                pbar.update(len(written_ids_batch))
+            # update sets after each batch
+            sh.update_set({"w": written_ids_batch, "c": batch_ids})
     return sh
 
 
