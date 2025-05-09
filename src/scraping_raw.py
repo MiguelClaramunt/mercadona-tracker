@@ -1,9 +1,10 @@
 # import libsql_experimental as libsql
 import os
 import sqlite3
-import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+import signal
 
 import requests
 from tqdm import tqdm
@@ -16,6 +17,18 @@ from mercatracker.api import (
 )
 from mercatracker.config import Config
 from mercatracker.sethandler import SetHandler
+
+stop_event = threading.Event()
+
+def _handle_exit(signum, frame):
+    print(f"Received exit signal ({signum}), will stop after current batch...")
+    stop_event.set()
+
+signal.signal(signal.SIGINT, _handle_exit)
+signal.signal(signal.SIGTERM, _handle_exit)
+if hasattr(signal, 'SIGBREAK'):
+    # Handle Ctrl-Break on Windows
+    signal.signal(signal.SIGBREAK, _handle_exit)
 
 BATCH_SIZE = 16  # increased for higher concurrency
 config = Config().load()
@@ -80,6 +93,9 @@ def scrape_supermarket(conn, product_schema_class, sh, supermarket_params, posit
         leave=True,
     ) as pbar:
         for i in range(0, len(ids_to_process), BATCH_SIZE):
+            if stop_event.is_set():
+                print("Stop signal received, exiting current scrape_supermarket batch loop...")
+                break
             batch_ids = ids_to_process[i : i + BATCH_SIZE]
             results = process_batch(product_schema_class, batch_ids, supermarket_params)
             valid_requests = [r for r in results if r.response.status_code == 200]
@@ -125,34 +141,38 @@ if __name__ == "__main__":
         local_conn = sqlite3.connect(db_path, check_same_thread=False)
         local_sh = SetHandler(conn=local_conn)
         local_sh.init_set("s", "w", "c")
-        while True:
-            try:
-                local_sh = scrape_supermarket(
-                    local_conn,
-                    target["request_handler"],
-                    local_sh,
-                    target["params"],
-                    position,
-                )
-                remaining_ids = local_sh.s - local_sh.w - local_sh.c
-                if not remaining_ids:
-                    local_sh.save_cache()
-                    print(f"All {target['request_handler'].get_name()} IDs processed.")
+        try:
+            while not stop_event.is_set():
+                try:
+                    local_sh = scrape_supermarket(
+                        local_conn,
+                        target["request_handler"],
+                        local_sh,
+                        target["params"],
+                        position,
+                    )
+                    remaining_ids = local_sh.s - local_sh.w - local_sh.c
+                    if not remaining_ids:
+                        local_sh.save_cache()
+                        print(f"All {target['request_handler'].get_name()} IDs processed.")
+                        break
+                except requests.exceptions.SSLError:
+                    secs = 120
+                    print(f"Encountered SSLError. Retrying in {secs // 60} minutes...")
+                    time.sleep(secs)
+                except TemporaryRestrictionException as e:
+                    secs = 300
+                    print(f"{e} Retrying in {secs // 60} minutes...")
+                    time.sleep(secs)
+                except KeyboardInterrupt:
+                    print("KeyboardInterrupt caught, breaking out of scrape_target loop...")
                     break
-            except requests.exceptions.SSLError:
-                secs = 120
-                print(f"Encountered SSLError. Retrying in {secs // 60} minutes...")
-                time.sleep(secs)
-            except TemporaryRestrictionException as e:
-                secs = 300
-                print(f"{e} Retrying in {secs // 60} minutes...")
-                time.sleep(secs)
-            except KeyboardInterrupt:
+        finally:
+            # on exit, save cache before closing DB
+            if stop_event.is_set():
                 local_sh.save_cache()
-                print("Interrupted by user. Closing DB.")
-                local_conn.close()
-                sys.exit(130)
-        local_conn.close()
+                print("Shutdown initiated. Exiting target.")
+            local_conn.close()
 
     with ThreadPoolExecutor(max_workers=len(scrape_targets)) as executor:
         futures = [
