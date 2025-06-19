@@ -6,6 +6,10 @@ dependencies = [
     "tqdm",
     "requests",
     "certifi",
+    "bs4",
+    "yarl",
+    "dotenv",
+    "lxml",
 ]
 
 [build-system]
