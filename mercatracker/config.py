@@ -48,7 +48,7 @@ class Config:
     def __post_init__(self):
         if self.paths is None:
             self.paths = self._search(
-                build((get_project_dir(), "src", "*"), ".env")
+                build((get_project_dir(), "*"), ".env")
                 # path.build((path.get_project_dir(), "*"), ".env")
             )
         self.dict_ = self._load_dotenv(self.paths)
