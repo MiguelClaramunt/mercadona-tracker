@@ -1,5 +1,4 @@
 import json
-import sqlite3
 from typing import Any
 
 
@@ -16,16 +15,21 @@ def dict_to_query(input_dict: dict[str, Any]) -> tuple[str, Any]:
     return (query, values)
 
 
-def init_dumps_table(conn: sqlite3.Connection):
+def init_dumps_table(conn):
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS dumps (
-            id TEXT, 
-            ymd INTEGER,
-            content TEXT,
-            supermarket_id INTEGER,
-            PRIMARY KEY (id, ymd, supermarket_id)
-            FOREIGN KEY (supermarket_id) REFERENCES supermarkets(id)
+        CREATE TABLE IF NOT EXISTS "dumps" (
+            "id" TEXT,
+            "ymd" INTEGER,
+            "content" TEXT,
+            "supermarket_id" INTEGER,
+            PRIMARY KEY (id, ymd, supermarket_id),
+            FOREIGN KEY ("supermarket_id") REFERENCES "supermarkets"("id")
         );
+    """)
+    # ensure index for querying by supermarket and ymd
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_dumps_market_ymd
+        ON "dumps"(supermarket_id, ymd);
     """)
     cursor = conn.cursor()
     cursor.execute("""
@@ -35,25 +39,27 @@ def init_dumps_table(conn: sqlite3.Connection):
     trigger_exists = cursor.fetchone()
     if not trigger_exists:
         conn.execute("""
-                    CREATE TRIGGER remove_consecutive_duplicates
-                    AFTER INSERT ON dumps
-                    BEGIN
-                    DELETE FROM dumps
-                    WHERE rowid = NEW.rowid AND EXISTS (
-                        SELECT 1 FROM dumps
-                        WHERE id = NEW.id
-                        AND ymd = (
-                            SELECT MAX(ymd) FROM dumps
-                            WHERE id = NEW.id AND ymd < NEW.ymd
-                        )
-                        AND content = NEW.content
-                    );
-                    END;
-                    """)
+            CREATE TRIGGER remove_consecutive_duplicates
+            AFTER INSERT ON dumps
+            BEGIN
+                DELETE FROM dumps
+                WHERE rowid = NEW.rowid
+                  AND EXISTS (
+                    SELECT 1 FROM dumps
+                    WHERE id = NEW.id
+                      AND ymd = (
+                        SELECT MAX(ymd)
+                        FROM dumps
+                        WHERE id = NEW.id AND ymd < NEW.ymd
+                      )
+                      AND content = NEW.content
+                  );
+            END;
+        """)
     conn.commit()
 
 
-def write_dump(conn: sqlite3.Connection, parameters: dict):
+def write_dump(conn, parameters: dict):
     init_dumps_table(conn)
     cur = conn.cursor()
     query, values = dict_to_query(parameters)
@@ -61,18 +67,19 @@ def write_dump(conn: sqlite3.Connection, parameters: dict):
     conn.commit()
 
 
-def init_supermarkets_table(conn: sqlite3.Connection):
+def init_supermarkets_table(conn):
     conn.execute("""
-                 CREATE TABLE IF NOT EXISTS "supermarkets" (
-                    `id` INTEGER PRIMARY KEY AUTOINCREMENT, 
-                    "supermarket" TEXT,
-                    "params" TEXT, 
-                    UNIQUE (id, "supermarket", "params"));
-                 """)
+        CREATE TABLE IF NOT EXISTS "supermarkets" (
+            "id" INTEGER PRIMARY KEY AUTOINCREMENT, 
+            "supermarket" TEXT,
+            "params" TEXT, 
+            UNIQUE ("id", "supermarket", "params")
+        );
+    """)
     conn.commit()
 
 
-def write_supermarket_params(conn: sqlite3.Connection, parameters: dict):
+def write_supermarket_params(conn, parameters: dict):
     init_supermarkets_table(conn)
     cur = conn.cursor()
     query = """
@@ -83,16 +90,15 @@ def write_supermarket_params(conn: sqlite3.Connection, parameters: dict):
     conn.commit()
 
 
-def get_lastmod(conn: sqlite3.Connection, supermarket_id: int) -> int:
+def get_lastmod(conn, supermarket_id: int) -> int:
+    init_dumps_table(conn)
     conn.row_factory = lambda cursor, row: row[0]
     return conn.execute(
         """SELECT max(ymd) FROM dumps WHERE supermarket_id = ?""", (supermarket_id,)
     ).fetchone()
 
 
-def get_processed_ids(
-    conn: sqlite3.Connection, supermarket_id: int, ymd: int
-) -> list[str]:
+def get_processed_ids(conn, supermarket_id: int, ymd: int) -> list[str]:
     init_dumps_table(conn)
     conn.row_factory = lambda cursor, row: row[0]
     return conn.execute(
@@ -101,26 +107,25 @@ def get_processed_ids(
     ).fetchall()
 
 
-def select_from_table(conn: sqlite3.Connection, column_name: str, table_name: str):
+def select_from_table(conn, column_name: str, table_name: str):
     conn.row_factory = lambda cursor, row: row[0]
-    return conn.execute("""SELECT {} FROM {}""".format(column_name, table_name))
+    return conn.execute(f"SELECT {column_name} FROM {table_name}")
 
 
-def query_database(conn, criteria) -> int:
+def fetch_supermarket_id(conn, criteria) -> int:
+    init_supermarkets_table(conn)
     query = 'SELECT "id" FROM "supermarkets" WHERE '
-    conditions = []
-    for key in criteria:
-        conditions.append(f'"{key}" = ?')
+    conditions = [f'"{key}" = ?' for key in criteria]
     query += " AND ".join(conditions)
     cursor = conn.execute(query, tuple(criteria[k] for k in criteria))
     if (result := cursor.fetchone()) is None:
-        raise ValueError("No matching supermarket found")
+        return False
     if isinstance(result, tuple):
         return result[0]
     return result
 
 
-def init_set_table(conn: sqlite3.Connection):
+def init_set_table(conn):
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS set_cache (
@@ -130,13 +135,14 @@ def init_set_table(conn: sqlite3.Connection):
             data TEXT,
             PRIMARY KEY (ymd, supermarket_id, set_name),
             FOREIGN KEY (supermarket_id) REFERENCES supermarkets(id)
-        )
+        );
     """)
     conn.commit()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT name FROM sqlite_master WHERE type='trigger' AND name='delete_older_set_cache_entries'"
-    )
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='trigger' AND name='delete_older_set_cache_entries'
+    """)
     trigger_exists = cursor.fetchone()
     if not trigger_exists:
         conn.execute("""
@@ -153,7 +159,7 @@ def init_set_table(conn: sqlite3.Connection):
 
 
 def write_set_cache(
-    conn: sqlite3.Connection,
+    conn,
     ymd: int,
     supermarket_id: int,
     set_name: str,
@@ -163,19 +169,14 @@ def write_set_cache(
     cur = conn.cursor()
     data_json = json.dumps(list(set_data))
     query = """
-            INSERT OR REPLACE INTO set_cache (ymd, supermarket_id, set_name, data)
-            VALUES (?, ?, ?, ?)
-            """
+        INSERT OR REPLACE INTO set_cache (ymd, supermarket_id, set_name, data)
+        VALUES (?, ?, ?, ?)
+    """
     cur.execute(query, (ymd, supermarket_id, set_name, data_json))
     conn.commit()
 
 
-def load_set_cache(
-    conn: sqlite3.Connection, ymd: int, supermarket_id: int
-) -> dict[str, set]:
-    """
-    Returns a dictionary of {set_name: set_of_items} for the given ymd / supermarket_id.
-    """
+def load_set_cache(conn, ymd: int, supermarket_id: int) -> dict[str, set]:
     init_set_table(conn)
     conn.row_factory = None
     cur = conn.cursor()
