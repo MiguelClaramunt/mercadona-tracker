@@ -61,10 +61,9 @@ def scrape_supermarket(
         "supermarket": product_schema_class.get_name(),
         "params": supermarket_params,
     }
+    # ensure supermarket record exists (INSERT OR IGNORE semantics)
+    db.write_supermarket_params(conn, db_params)
     supermarket_id = db.fetch_supermarket_id(conn, db_params)
-    if not supermarket_id:
-        db.write_supermarket_params(conn, supermarket_params)
-        supermarket_id = db.fetch_supermarket_id(conn, supermarket_params)
 
     sh.supermarket_id = supermarket_id
     sh.ymd = supermarket.lastmod
